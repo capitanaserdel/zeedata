@@ -239,7 +239,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      print("🌐 LOCK SCREEN: CALLING LOGIN API FOR PASSWORD AUTH");
+      print("🌐 LOCK SCREEN: CALLING LOGIN API FOR PASSWORD ");
       final response = await _apiService.post('/login', data: {
         'email': email,
         'password': password,
