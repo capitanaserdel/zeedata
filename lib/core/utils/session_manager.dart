@@ -104,6 +104,8 @@ class SessionManager {
   Future<void> fullWipe() async {
     await _secureStorage.deleteAll();
     final prefs = await SharedPreferences.getInstance();
+    final isFirstTime = prefs.getBool(keyIsFirstTime) ?? true;
     await prefs.clear();
+    await prefs.setBool(keyIsFirstTime, isFirstTime);
   }
 }

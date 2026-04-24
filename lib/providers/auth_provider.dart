@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import '../models/user_data.dart';
@@ -17,7 +18,7 @@ class AuthState {
   final bool isFirstTime;
   final bool isLocked;
   final bool isAccountDeleted;
-  final bool isNavigatingToLogin;
+  final bool shouldShowLogin;
   
   // Helper getters for easy UI binding
   bool get loginBioEnabled => user?.userSettings?.passwordFingerprint ?? false;
@@ -35,7 +36,7 @@ class AuthState {
     this.isFirstTime = false,
     this.isLocked = false,
     this.isAccountDeleted = false,
-    this.isNavigatingToLogin = false,
+    this.shouldShowLogin = false,
   });
 
   AuthState copyWith({
@@ -50,7 +51,7 @@ class AuthState {
     bool? isFirstTime,
     bool? isLocked,
     bool? isAccountDeleted,
-    bool? isNavigatingToLogin,
+    bool? shouldShowLogin,
   }) {
     return AuthState(
       user: user ?? this.user,
@@ -64,7 +65,7 @@ class AuthState {
       isFirstTime: isFirstTime ?? this.isFirstTime,
       isLocked: isLocked ?? this.isLocked,
       isAccountDeleted: isAccountDeleted ?? this.isAccountDeleted,
-      isNavigatingToLogin: isNavigatingToLogin ?? this.isNavigatingToLogin,
+      shouldShowLogin: shouldShowLogin ?? this.shouldShowLogin,
     );
   }
 }
@@ -74,8 +75,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final SettingsService _settingsService;
   final SessionManager _sessionManager = SessionManager();
 
+  String _getErrorMessage(dynamic responseData) {
+    if (responseData == null) return 'An unexpected error occurred';
+    
+    String message = responseData['responseMessage'] ?? 'An error occurred';
+    
+    if (responseData['errors'] != null) {
+      final errors = responseData['errors'] as Map<String, dynamic>;
+      if (errors.isNotEmpty) {
+        final firstError = errors.values.first;
+        if (firstError is List && firstError.isNotEmpty) {
+          return firstError.first.toString();
+        } else if (firstError is String) {
+          return firstError;
+        }
+      }
+    }
+    
+    return message;
+  }
+
   AuthNotifier(this._apiService, this._settingsService) : super(AuthState()) {
     checkAuth();
+    // Debug listener
+    addListener((state) {
+      debugPrint('🔔 AuthState Changed: isAuthenticated=${state.isAuthenticated}, isAccountDeleted=${state.isAccountDeleted}, isLoading=${state.isLoading}');
+    });
   }
 
   Future<void> fetchTransactions() async {
@@ -197,7 +222,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> completeOnboarding({bool toLogin = false}) async {
     await _sessionManager.setFirstTimeComplete();
-    state = state.copyWith(isFirstTime: false, isNavigatingToLogin: toLogin);
+    state = state.copyWith(
+      isFirstTime: false, 
+      shouldShowLogin: toLogin
+    );
   }
 
   Future<bool> unlockWithPassword(String password) async {
@@ -237,7 +265,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response.data['responseMessage'] ?? 'Invalid password');
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
         return false;
       }
     } catch (e) {
@@ -341,6 +369,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         
         await _sessionManager.setLoginBiometricsEnabled(loginBio);
         await _sessionManager.setTransactionBiometricsEnabled(transBio);
+        await _sessionManager.setFirstTimeComplete();
         
         print("🔑 LOGIN SUCCESS - BIO STATE: LOGIN=$loginBio, TRANS=$transBio");
 
@@ -356,7 +385,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response.data['responseMessage']);
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
         return false;
       }
     } catch (e) {
@@ -392,6 +421,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _sessionManager.savePassword(password);
         await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
         await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
+        await _sessionManager.setFirstTimeComplete();
 
         state = state.copyWith(
           isLoading: false,
@@ -402,7 +432,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response.data['responseMessage']);
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
         return false;
       }
     } catch (e) {
@@ -441,7 +471,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> switchAccount() async {
     await _sessionManager.fullWipe();
-    state = AuthState(isFirstTime: state.isFirstTime);
+    state = AuthState(
+      isFirstTime: state.isFirstTime,
+      shouldShowLogin: true,
+    );
   }
 
   Future<bool> updateProfile({String? fullname, String? phone, String? imagePath}) async {
@@ -461,7 +494,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response['responseMessage']);
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response));
         return false;
       }
     } catch (e) {
@@ -487,7 +520,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _sessionManager.savePin(pin); // Save locally for biometrics
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response.data['responseMessage']);
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
         return false;
       }
     } catch (e) {
@@ -520,7 +553,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _sessionManager.savePin(newPin); // Update local store
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response.data['responseMessage']);
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
         return false;
       }
     } catch (e) {
@@ -561,7 +594,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           isLoginBioLoading: false,
           isTransBioLoading: false,
-          error: response['responseMessage'],
+          error: _getErrorMessage(response),
         );
         return false;
       }
@@ -576,15 +609,61 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<bool> deleteAccount() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, isAuthenticated: false);
     try {
       final response = await _settingsService.deleteAccount();
-      if (response['responseSuccessful'] || response['message'] == 'Account deleted') {
+      if ((response['responseSuccessful'] == true) || (response['message'] == 'Account deleted')) {
+        debugPrint('🧹 Wiping session and setting isAccountDeleted=true');
         await _sessionManager.fullWipe();
         state = AuthState(isFirstTime: false, isAccountDeleted: true);
+        debugPrint('✅ State set: isAccountDeleted=${state.isAccountDeleted}');
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: response['responseMessage'] ?? 'Failed to delete account');
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response));
+        return false;
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiService.post('/forgot-password', data: {'email': email});
+      if (response.data['responseSuccessful']) {
+        state = state.copyWith(isLoading: false);
+        return true;
+      } else {
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
+        return false;
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiService.post('/reset-password', data: {
+        'email': email,
+        'otp': otp,
+        'password': password,
+        'password_confirmation': confirmPassword,
+      });
+      if (response.data['responseSuccessful']) {
+        state = state.copyWith(isLoading: false);
+        return true;
+      } else {
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
         return false;
       }
     } catch (e) {

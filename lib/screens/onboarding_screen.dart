@@ -101,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 48),
                     
-                    // Main Action Button
+                    // Main Action Button (Continue / Create Account)
                     Consumer(builder: (context, ref, child) {
                       return ElevatedButton(
                         onPressed: () {
@@ -111,7 +111,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               curve: Curves.easeOutQuint,
                             );
                           } else {
-                            // "Create Account" at the end of onboarding
                             ref.read(authProvider.notifier).completeOnboarding(toLogin: false);
                           }
                         },
@@ -135,30 +134,53 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     
                     const SizedBox(height: 16),
                     
-                    // Skip/Login Button
-                    Consumer(builder: (context, ref, child) {
-                      return TextButton(
-                        onPressed: () {
-                          bool toLogin = _currentPage == _pages.length - 1;
-                          ref.read(authProvider.notifier).completeOnboarding(toLogin: toLogin);
-                        },
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                        child: Text(
-                          _currentPage == _pages.length - 1 ? 'Log In Instead' : 'Skip',
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                    // Login Instead Button (LAST SCREEN ONLY)
+                    if (_currentPage == _pages.length - 1)
+                      Consumer(builder: (context, ref, child) {
+                        return TextButton(
+                          onPressed: () => ref.read(authProvider.notifier).completeOnboarding(toLogin: true),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 50),
                           ),
-                        ),
-                      );
-                    }),
+                          child: const Text(
+                            'Log In Instead',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        );
+                      })
+                    else
+                      const SizedBox(height: 50), // Maintain layout consistency
                   ],
                 ),
               ),
             ],
+          ),
+
+          // Skip Button (Top Right) - Placed last in Stack to be on top
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Consumer(builder: (context, ref, child) {
+                return TextButton(
+                  onPressed: () => ref.read(authProvider.notifier).completeOnboarding(toLogin: false),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      'Skip',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
         ],
       ),

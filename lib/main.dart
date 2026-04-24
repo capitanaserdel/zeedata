@@ -22,7 +22,7 @@ class ZeeDataApp extends ConsumerWidget {
     final authState = ref.watch(authProvider);
 
     return MaterialApp(
-      key: ValueKey(authState.isAuthenticated),
+      key: ValueKey('${authState.isAuthenticated}_${authState.isAccountDeleted}'),
       title: 'Zee Data',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -32,37 +32,46 @@ class ZeeDataApp extends ConsumerWidget {
 
   Widget _getHome(AuthState authState) {
     if (authState.isLoading) {
+      debugPrint('🏠 Routing to: SplashScreen');
       return const SplashScreen();
     }
     
+    if (authState.isAccountDeleted) {
+      debugPrint('🏠 Routing to: RegistrationScreen (Account Deleted)');
+      return const RegistrationScreen();
+    }
+    
     if (authState.isFirstTime) {
+      debugPrint('🏠 Routing to: OnboardingScreen');
       return const OnboardingScreen();
     }
     
     if (authState.isAuthenticated) {
       if (authState.isLocked) {
+        debugPrint('🏠 Routing to: LockScreen');
         return const LockScreen();
       }
       if (authState.user != null && !authState.user!.hasPin) {
+        debugPrint('🏠 Routing to: CreatePinScreen');
         return const CreatePinScreen();
       }
+      debugPrint('🏠 Routing to: MainScreen');
       return const MainScreen();
-    }
-
-    if (authState.isAccountDeleted) {
-      return const RegistrationScreen();
     }
 
     // If we have user data (returning user), show the Lock Screen
     if (authState.user != null) {
+      debugPrint('🏠 Routing to: LockScreenFallback');
       return const LockScreen();
     }
 
-    // New user flow: decide between Login and Registration based on onboarding selection
-    if (authState.isNavigatingToLogin) {
+    if (authState.shouldShowLogin) {
+      debugPrint('🏠 Routing to: LoginScreen');
       return const LoginScreen();
     }
-    
+
+    // Default to registration for new users who finished onboarding
+    debugPrint('🏠 Routing to: RegistrationScreen');
     return const RegistrationScreen();
   }
 }

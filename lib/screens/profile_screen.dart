@@ -212,10 +212,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
-              final success = await ref.read(authProvider.notifier).deleteAccount();
-              if (success && mounted) {
-                // Root rebuild handles navigation to RegistrationScreen
-              }
+              // Store notifier before the await to avoid 'ref' access after disposal
+              final authNotifier = ref.read(authProvider.notifier);
+              
+              // This will trigger the root rebuild and dispose this screen
+              await authNotifier.deleteAccount();
+              
+              // No need to check mounted or success here, 
+              // the root MaterialApp handles the switch to RegistrationScreen
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),

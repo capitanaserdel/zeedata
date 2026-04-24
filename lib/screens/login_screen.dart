@@ -4,6 +4,7 @@ import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_loader.dart';
 import 'registration_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -104,7 +105,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {}, // TODO: Forgot Password
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                            );
+                          },
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(
