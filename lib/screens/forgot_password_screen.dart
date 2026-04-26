@@ -26,7 +26,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('OTP sent successfully (Demo OTP: 123456)'),
+          content: Text('OTP sent successfully. Please check your email.'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
