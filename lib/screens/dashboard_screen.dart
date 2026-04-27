@@ -16,6 +16,10 @@ import 'fund_wallet_screen.dart';
 import 'transaction_detail_screen.dart';
 import 'airtime_to_cash_screen.dart';
 import 'transactions_screen.dart';
+import 'cable_tv_screen.dart';
+import 'bulk_sms_screen.dart';
+import 'education_pin_screen.dart';
+import 'recharge_pin_screen.dart';
 import '../widgets/user_avatar.dart';
 import '../models/user_data.dart' as model;
 
@@ -269,10 +273,42 @@ class DashboardScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AirtimeToCashScreen())),
                     ),
                     _QuickAction(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'Bills',
+                      icon: Icons.tv_rounded,
+                      label: 'Cable',
                       color: const Color(0xFFF5F3FF),
                       iconColor: const Color(0xFF8B5CF6),
+                      isTablet: isTablet,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CableTVScreen())),
+                    ),
+                    _QuickAction(
+                      icon: Icons.sms_rounded,
+                      label: 'SMS',
+                      color: const Color(0xFFFFF7ED),
+                      iconColor: const Color(0xFFF97316),
+                      isTablet: isTablet,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BulkSMSScreen())),
+                    ),
+                    _QuickAction(
+                      icon: Icons.school_rounded,
+                      label: 'Education',
+                      color: const Color(0xFFF0FDF4),
+                      iconColor: const Color(0xFF10B981),
+                      isTablet: isTablet,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationPinScreen())),
+                    ),
+                    _QuickAction(
+                      icon: Icons.vibration_rounded,
+                      label: 'RPIN',
+                      color: const Color(0xFFEEF2FF),
+                      iconColor: const Color(0xFF6366F1),
+                      isTablet: isTablet,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RechargePinScreen())),
+                    ),
+                    _QuickAction(
+                      icon: Icons.receipt_long_rounded,
+                      label: 'Bills',
+                      color: const Color(0xFFFFF1F2),
+                      iconColor: const Color(0xFFE11D48),
                       isTablet: isTablet,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BillsScreen())),
                     ),

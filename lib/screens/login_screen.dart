@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_loader.dart';
@@ -98,6 +99,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         label: 'Password',
                         icon: Icons.lock_outline_rounded,
                         isPassword: true,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
                         validator: (v) => v!.isEmpty ? 'Required' : null,
                       ),
                       
@@ -213,12 +219,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required IconData icon,
     bool isPassword = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: isPassword,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
       style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
       decoration: InputDecoration(

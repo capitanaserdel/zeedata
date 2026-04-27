@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import '../providers/auth_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
@@ -115,7 +116,12 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       label: 'Password',
                       icon: Icons.lock_outline_rounded,
                       isPassword: true,
-                      validator: (v) => v!.length < 6 ? 'Minimum 6 characters' : null,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
+                      validator: (v) => v!.length != 6 ? 'Password must be 6 digits' : null,
                     ),
                     
                     const SizedBox(height: 40),
@@ -208,12 +214,14 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     required IconData icon,
     bool isPassword = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: isPassword,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
       style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
       decoration: InputDecoration(

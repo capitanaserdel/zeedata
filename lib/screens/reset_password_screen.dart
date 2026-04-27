@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import '../providers/auth_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
@@ -105,7 +106,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       label: 'New Password',
                       icon: Icons.lock_outline_rounded,
                       isPassword: true,
-                      validator: (v) => v!.length < 6 ? 'Minimum 6 characters' : null,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
+                      validator: (v) => v!.length != 6 ? 'Password must be 6 digits' : null,
                     ),
                     const SizedBox(height: 20),
                     
@@ -114,6 +120,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       label: 'Confirm New Password',
                       icon: Icons.lock_reset_rounded,
                       isPassword: true,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
                       validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null,
                     ),
                     
@@ -177,6 +188,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     required IconData icon,
     bool isPassword = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return Container(
@@ -189,6 +201,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         controller: controller,
         obscureText: isPassword,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         style: const TextStyle(fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           labelText: label,

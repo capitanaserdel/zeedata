@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 
@@ -35,13 +36,18 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Update your account password. Use at least 6 characters.',
+                'Update your account password. Use exactly 6 digits.',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 32),
               TextFormField(
                 controller: _currentPasswordController,
                 obscureText: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 decoration: InputDecoration(
                   labelText: 'Current Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -52,16 +58,26 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               TextFormField(
                 controller: _newPasswordController,
                 obscureText: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 decoration: InputDecoration(
                   labelText: 'New Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                validator: (v) => v!.length < 6 ? 'Minimum 6 characters' : null,
+                validator: (v) => v!.length != 6 ? 'Password must be 6 digits' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 decoration: InputDecoration(
                   labelText: 'Confirm New Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
@@ -117,6 +118,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final biometricEnabled = user?.userSettings?.passwordFingerprint ?? false;
     print("🎨 LOCK SCREEN: Rendering with loginBiometricEnabled = $biometricEnabled");
 
+    final size = MediaQuery.of(context).size;
+    final isSmallScreen = size.height < 700;
+    
+    final double buttonSize = (size.width * 0.2).clamp(60.0, 80.0);
+    final double verticalPadding = isSmallScreen ? 4.0 : 8.0;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -124,33 +131,35 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(height: 60),
+              Spacer(flex: isSmallScreen ? 1 : 2),
               // Header Section
-              const CircleAvatar(
-                radius: 40,
-                backgroundColor: Color(0xFFF5F7FA),
-                child: Icon(Icons.lock_outline, size: 40, color: AppColors.primary),
+              CircleAvatar(
+                radius: isSmallScreen ? 30 : 40,
+                backgroundColor: const Color(0xFFF5F7FA),
+                child: Icon(Icons.lock_outline, size: isSmallScreen ? 30 : 40, color: AppColors.primary),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: isSmallScreen ? 12 : 24),
               Text(
                 'Welcome Back,',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: isSmallScreen ? 16 : 18, color: Colors.grey[600]),
               ),
               const SizedBox(height: 4),
               Text(
                 user?.fullname ?? 'User',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: isSmallScreen ? 20 : 24, fontWeight: FontWeight.bold, color: AppColors.primary),
               ),
-              const SizedBox(height: 40),
+              Spacer(flex: isSmallScreen ? 1 : 2),
               
               // 6-Digit Password Dots
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(6, (index) {
                   return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    width: 14,
-                    height: 14,
+                    margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 10),
+                    width: isSmallScreen ? 12 : 14,
+                    height: isSmallScreen ? 12 : 14,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: index < _password.length ? AppColors.primary : Colors.grey[300],
@@ -163,19 +172,36 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 }),
               ),
 
-
-              const Spacer(),
+              Spacer(flex: isSmallScreen ? 2 : 3),
               
               // Numeric Keypad
               Opacity(
                 opacity: _isLoading ? 0.5 : 1.0,
                 child: AbsorbPointer(
                   absorbing: _isLoading,
-                  child: _buildKeypad(biometricEnabled),
+                  child: _buildKeypad(biometricEnabled, buttonSize, verticalPadding),
                 ),
               ),
-              
-              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                    );
+                  },
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      color: Color(0xFF011B60),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 24),
               
               // Switch Account Button
               TextButton(
@@ -185,7 +211,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: isSmallScreen ? 10 : 20),
             ],
           ),
         ),
@@ -193,38 +219,41 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     );
   }
 
-  Widget _buildKeypad(bool biometricEnabled) {
+  Widget _buildKeypad(bool biometricEnabled, double buttonSize, double verticalPadding) {
     return Column(
       children: [
-        _buildKeypadRow(['1', '2', '3']),
-        _buildKeypadRow(['4', '5', '6']),
-        _buildKeypadRow(['7', '8', '9']),
-        _buildKeypadRow([biometricEnabled ? 'biometric' : null, '0', 'delete']),
+        _buildKeypadRow(['1', '2', '3'], buttonSize, verticalPadding),
+        _buildKeypadRow(['4', '5', '6'], buttonSize, verticalPadding),
+        _buildKeypadRow(['7', '8', '9'], buttonSize, verticalPadding),
+        _buildKeypadRow([biometricEnabled ? 'biometric' : null, '0', 'delete'], buttonSize, verticalPadding),
       ],
     );
   }
 
-  Widget _buildKeypadRow(List<String?> keys) {
+  Widget _buildKeypadRow(List<String?> keys, double buttonSize, double verticalPadding) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: keys.map((key) {
-          if (key == null) return const SizedBox(width: 80);
+          if (key == null) return SizedBox(width: buttonSize);
           if (key == 'delete') {
             return _buildKeypadButton(
               icon: Icons.backspace_outlined,
+              buttonSize: buttonSize,
               onTap: _onDelete,
             );
           }
           if (key == 'biometric') {
             return _buildKeypadButton(
               icon: Icons.fingerprint_rounded,
+              buttonSize: buttonSize,
               onTap: _authenticateBiometric,
             );
           }
           return _buildKeypadButton(
             label: key,
+            buttonSize: buttonSize,
             onTap: () => _onNumberPress(key),
           );
         }).toList(),
@@ -232,19 +261,19 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     );
   }
 
-  Widget _buildKeypadButton({String? label, IconData? icon, required VoidCallback onTap}) {
+  Widget _buildKeypadButton({String? label, IconData? icon, required double buttonSize, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(40),
+      borderRadius: BorderRadius.circular(buttonSize / 2),
       child: Container(
-        width: 80,
-        height: 80,
+        width: buttonSize,
+        height: buttonSize,
         alignment: Alignment.center,
         child: icon != null 
-          ? Icon(icon, size: 28, color: AppColors.primary)
+          ? Icon(icon, size: buttonSize * 0.35, color: AppColors.primary)
           : Text(
               label!,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w500, color: AppColors.primary),
+              style: TextStyle(fontSize: buttonSize * 0.35, fontWeight: FontWeight.w500, color: AppColors.primary),
             ),
       ),
     );
