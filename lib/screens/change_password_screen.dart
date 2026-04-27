@@ -16,6 +16,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +45,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               const SizedBox(height: 32),
               TextFormField(
                 controller: _currentPasswordController,
-                obscureText: true,
+                obscureText: _obscureCurrent,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -51,13 +54,17 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 decoration: InputDecoration(
                   labelText: 'Current Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureCurrent ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                  ),
                 ),
                 validator: (v) => v!.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _newPasswordController,
-                obscureText: true,
+                obscureText: _obscureNew,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -66,13 +73,17 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 decoration: InputDecoration(
                   labelText: 'New Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                  ),
                 ),
                 validator: (v) => v!.length != 6 ? 'Password must be 6 digits' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _confirmPasswordController,
-                obscureText: true,
+                obscureText: _obscureConfirm,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -81,6 +92,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 decoration: InputDecoration(
                   labelText: 'Confirm New Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
                 ),
                 validator: (v) {
                   if (v != _newPasswordController.text) return 'Passwords do not match';

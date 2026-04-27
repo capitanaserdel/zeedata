@@ -18,6 +18,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +100,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         label: 'Password',
                         icon: Icons.lock_outline_rounded,
                         isPassword: true,
+                        obscureText: _obscurePassword,
+                        onToggleVisibility: () => setState(() => _obscurePassword = !_obscurePassword),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -218,13 +221,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required String label,
     required IconData icon,
     bool isPassword = false,
+    bool obscureText = false,
+    VoidCallback? onToggleVisibility,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
-      obscureText: isPassword,
+      obscureText: obscureText,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       validator: validator,
@@ -233,6 +238,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         labelText: label,
         labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
         prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 22),
+        suffixIcon: isPassword 
+          ? IconButton(
+              icon: Icon(
+                obscureText ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                color: const Color(0xFF94A3B8),
+                size: 20,
+              ),
+              onPressed: onToggleVisibility,
+            )
+          : null,
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
         border: OutlineInputBorder(

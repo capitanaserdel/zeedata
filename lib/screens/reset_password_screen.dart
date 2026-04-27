@@ -19,6 +19,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   Future<void> _handleResetPassword() async {
     if (!_formKey.currentState!.validate()) return;
@@ -106,6 +108,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       label: 'New Password',
                       icon: Icons.lock_outline_rounded,
                       isPassword: true,
+                      obscureText: _obscurePassword,
+                      onToggleVisibility: () => setState(() => _obscurePassword = !_obscurePassword),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -120,6 +124,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       label: 'Confirm New Password',
                       icon: Icons.lock_reset_rounded,
                       isPassword: true,
+                      obscureText: _obscureConfirm,
+                      onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -187,6 +193,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     required String label,
     required IconData icon,
     bool isPassword = false,
+    bool obscureText = false,
+    VoidCallback? onToggleVisibility,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
@@ -199,7 +207,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       ),
       child: TextFormField(
         controller: controller,
-        obscureText: isPassword,
+        obscureText: obscureText,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
         style: const TextStyle(fontWeight: FontWeight.w600),
@@ -207,6 +215,16 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           labelText: label,
           labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
           prefixIcon: Icon(icon, color: const Color(0xFF011B60)),
+          suffixIcon: isPassword 
+            ? IconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: const Color(0xFF94A3B8),
+                  size: 20,
+                ),
+                onPressed: onToggleVisibility,
+              )
+            : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
