@@ -201,17 +201,38 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                   _buildMeterTypeToggle(),
                   
                   const SizedBox(height: 24),
-                  _buildTextField(
-                    label: 'Meter Number',
-                    controller: _meterController,
-                    hint: 'Enter your 11 or 13 digit meter number',
-                    keyboardType: TextInputType.number,
-                    onChanged: (val) {
-                      setState(() => _isValidated = false);
-                      if ((val.length == 11 || val.length == 12 || val.length == 13) && !_isChecking) {
-                        _verifyMeter();
-                      }
-                    },
+                  const Text('Meter Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _meterController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (val) => setState(() => _isValidated = false),
+                          decoration: InputDecoration(
+                            hintText: 'Enter 11 or 13 digit meter number',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isChecking ? null : _verifyMeter,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
                   
                   if (_isValidated && _accountName != null)
@@ -251,16 +272,17 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _isValidated ? _handlePayment : _verifyMeter,
+                      onPressed: (_isValidated && !_isProcessing) ? _handlePayment : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
+                        disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
                       ),
-                    child: Text(
-                            _isValidated ? 'Pay Bill' : 'Verify Meter',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
+                      child: const Text(
+                        'Pay Bill',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
                     ),
                   ),
                 ],

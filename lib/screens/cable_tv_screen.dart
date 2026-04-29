@@ -298,17 +298,38 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                   ],
                   
                   const SizedBox(height: 24),
-                  _buildTextField(
-                    label: 'Smartcard / IUC Number',
-                    controller: _smartcardController,
-                    hint: 'Enter IUC or Smartcard number',
-                    keyboardType: TextInputType.number,
-                    onChanged: (val) {
-                      setState(() => _isValidated = false);
-                      if (val.length == 10 && !_isVerifying) {
-                        _verifySmartcard();
-                      }
-                    },
+                  const Text('Smartcard / IUC Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _smartcardController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (val) => setState(() => _isValidated = false),
+                          decoration: InputDecoration(
+                            hintText: 'Enter IUC or Smartcard number',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isVerifying ? null : _verifySmartcard,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
                   
                   if (_isValidated && _accountName != null)
@@ -333,18 +354,19 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _isValidated ? _handlePayment : _verifySmartcard,
+                      onPressed: (_isValidated && !_isProcessing) ? _handlePayment : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
+                        disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
                       ),
                       child: Text(
-                            _isValidated 
-                                ? 'Pay ${_selectedPlan != null ? currencyFormat.format(double.tryParse(_selectedPlan!['variation_amount']?.toString() ?? _selectedPlan!['amount']?.toString() ?? '0') ?? 0) : ''}' 
-                                : 'Verify Smartcard',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
+                        _isValidated 
+                            ? 'Pay ${_selectedPlan != null ? currencyFormat.format(double.tryParse(_selectedPlan!['variation_amount']?.toString() ?? _selectedPlan!['amount']?.toString() ?? '0') ?? 0) : ''}' 
+                            : 'Pay Bill',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
                     ),
                   ),
                 ],
