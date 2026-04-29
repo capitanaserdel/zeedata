@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
@@ -212,14 +213,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
-              // Store notifier before the await to avoid 'ref' access after disposal
               final authNotifier = ref.read(authProvider.notifier);
-              
-              // This will trigger the root rebuild and dispose this screen
               await authNotifier.deleteAccount();
-              
-              // No need to check mounted or success here, 
-              // the root MaterialApp handles the switch to RegistrationScreen
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -295,6 +290,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           title: user?.email ?? 'Email Address',
                           subtitle: 'Email',
                           onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 32),
+                      _buildSectionLabel('REFERRAL PROGRAM'),
+                      const SizedBox(height: 12),
+                      _buildMinimalContainer([
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFF1F5F9)),
+                            ),
+                            child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF041f62), size: 18),
+                          ),
+                          title: Text(
+                            user?.referral?.code ?? '---',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B), letterSpacing: 2),
+                          ),
+                          subtitle: const Text('Your Referral Code', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 20, color: Color(0xFF041f62)),
+                                onPressed: () {
+                                  if (user?.referral?.code != null) {
+                                    Clipboard.setData(ClipboardData(text: user!.referral!.code));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Referral code copied to clipboard')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const _MinimalDivider(),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildReferralStat('Total Referrals', '${user?.referral?.totalReferrals ?? 0}'),
+                              Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
+                              _buildReferralStat('Total Earned', '₦${user?.referral?.totalEarned ?? 0}'),
+                            ],
+                          ),
                         ),
                       ]),
                       const SizedBox(height: 32),
@@ -445,6 +490,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: const Icon(Icons.edit_rounded, size: 14, color: Colors.white),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReferralStat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1E293B)),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
         ),
       ],
     );

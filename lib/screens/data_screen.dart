@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
+import 'transaction_success_screen.dart';
+import '../models/user_data.dart';
 import 'package:intl/intl.dart';
 
 class DataScreen extends ConsumerStatefulWidget {
@@ -17,22 +19,53 @@ class _DataScreenState extends ConsumerState<DataScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _pinController = TextEditingController();
-  String? _selectedNetwork;
+  String? _selectedNetwork = 'MTN';
   String? _selectedPlan;
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchPlans('mtn-data');
+    });
+  }
 
   final List<Map<String, dynamic>> _networks = [
-    {'name': 'MTN', 'color': const Color(0xFFFFCC00), 'textColor': Colors.black},
-    {'name': 'Airtel', 'color': const Color(0xFFFF0000), 'textColor': Colors.white},
-    {'name': 'Glo', 'color': const Color(0xFF00FF00), 'textColor': Colors.black},
-    {'name': '9mobile', 'color': const Color(0xFF006600), 'textColor': Colors.white},
+    {'name': 'MTN', 'id': 'mtn-data', 'color': const Color(0xFFFFCC00), 'textColor': Colors.black},
+    {'name': 'Airtel', 'id': 'airtel-data', 'color': const Color(0xFFFF0000), 'textColor': Colors.white},
+    {'name': 'Glo', 'id': 'glo-data', 'color': const Color(0xFF00FF00), 'textColor': Colors.black},
+    {'name': '9mobile', 'id': '9mobile-data', 'color': const Color(0xFF006600), 'textColor': Colors.white},
   ];
 
-  final List<String> _plans = [
-    '1GB - ₦300 (30 Days)',
-    '2GB - ₦600 (30 Days)',
-    '5GB - ₦1,500 (30 Days)',
-    '10GB - ₦3,000 (30 Days)',
-  ];
+  Map<String, dynamic>? _selectedPlanData;
+  List<dynamic> _availablePlans = [];
+  bool _isLoadingPlans = false;
+
+  Future<void> _fetchPlans(String serviceId) async {
+    setState(() {
+      _isLoadingPlans = true;
+      _availablePlans = [];
+      _selectedPlanData = null;
+    });
+
+    try {
+      final api = ref.read(apiServiceProvider);
+      final response = await api.get('/vtu/variations', queryParameters: {'serviceID': serviceId});
+      
+      if (response.data['responseSuccessful']) {
+        setState(() {
+          _availablePlans = response.data['responseBody'];
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load plans: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingPlans = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +157,10 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                       final network = _networks[index];
                       final isSelected = _selectedNetwork == network['name'];
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedNetwork = network['name']),
+                        onTap: () {
+                          setState(() => _selectedNetwork = network['name']);
+                          _fetchPlans(network['id']);
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           decoration: BoxDecoration(
@@ -155,30 +191,89 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                   
                   const SizedBox(height: 32),
                   
-                  const Text(
-                    'Select Data Plan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Plan Dropdown / Selection
-                  DropdownButtonFormField<String>(
-                    value: _selectedPlan,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      prefixIcon: const Icon(Icons.wifi_tethering_rounded, color: Color(0xFF94A3B8)),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
-                      ),
+                  if (_selectedNetwork != null) ...[
+                    const Text(
+                      'Choose Data Plan',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
                     ),
-                    hint: const Text('Choose a data plan'),
-                    items: _plans.map((plan) => DropdownMenuItem(value: plan, child: Text(plan))).toList(),
-                    onChanged: (val) => setState(() => _selectedPlan = val),
-                    validator: (v) => v == null ? 'Please select a plan' : null,
-                  ),
+                    const SizedBox(height: 16),
+                    
+                    if (_isLoadingPlans)
+                      const Center(child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(color: Color(0xFF011B60)),
+                      ))
+                    else if (_availablePlans.isEmpty)
+                      const Center(child: Text('No plans available for this network.'))
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.3,
+                        ),
+                        itemCount: _availablePlans.length,
+                        itemBuilder: (context, index) {
+                          final plan = _availablePlans[index];
+                          final isSelected = _selectedPlanData == plan;
+                          
+                          return GestureDetector(
+                            onTap: () => setState(() => _selectedPlanData = plan),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF011B60) : Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
+                                  width: 2,
+                                ),
+                                boxShadow: isSelected ? [
+                                  BoxShadow(color: const Color(0xFF011B60).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
+                                ] : [],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    plan['name'].toString(),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      "₦${plan['variation_amount']}",
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.white : const Color(0xFF011B60),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
                   
                   const SizedBox(height: 24),
                   
@@ -192,16 +287,18 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                   const SizedBox(height: 40),
                   
                   ElevatedButton(
-                    onPressed: authState.isLoading ? null : _handlePurchase,
+                    onPressed: (authState.isLoading || _isProcessing) ? null : _handlePurchase,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF011B60),
                       minimumSize: const Size(double.infinity, 64),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Purchase Data',
-                      style: TextStyle(
+                    child: Text(
+                      _selectedPlanData != null 
+                        ? 'Pay ${currencyFormat.format(double.tryParse(_selectedPlanData!['variation_amount']?.toString() ?? '0') ?? 0)}'
+                        : 'Purchase Data',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -214,7 +311,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
             ),
           ),
           
-          if (authState.isLoading) const CustomLoader(message: 'Processing Transaction...'),
+          if (authState.isLoading || _isProcessing) const CustomLoader(message: 'Processing Transaction...'),
         ],
       ),
     );
@@ -262,14 +359,16 @@ class _DataScreenState extends ConsumerState<DataScreen> {
   }
 
   Future<void> _processTransaction(String pin) async {
+    setState(() => _isProcessing = true);
     print("🚀 Sending transaction with PIN: $pin");
 
     final api = ref.read(apiServiceProvider);
     try {
       final response = await api.post('/data', data: {
         'phone': _phoneController.text,
-        'network': _selectedNetwork,
-        'plan': _selectedPlan,
+        'serviceID': _networks.firstWhere((n) => n['name'] == _selectedNetwork)['id'],
+        'variation_code': _selectedPlanData!['variation_code'],
+        'amount': _selectedPlanData!['variation_amount'],
         'pin': pin,
       });
 
@@ -278,14 +377,22 @@ class _DataScreenState extends ConsumerState<DataScreen> {
           // Save the verified PIN for future biometric use
           await ref.read(authProvider.notifier).saveStoredPin(pin);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data purchased successfully!')),
-          );
+          final transaction = Transaction.fromJson(response.data['responseBody']);
           await ref.read(authProvider.notifier).refreshProfile();
-          Navigator.pop(context);
+
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TransactionSuccessScreen(transaction: transaction),
+              ),
+            );
+          }
         }
       } else {
         if (mounted) {
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed')),
           );
@@ -293,6 +400,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString())),
         );
@@ -303,6 +411,11 @@ class _DataScreenState extends ConsumerState<DataScreen> {
   Future<void> _handlePurchase() async {
     if (_selectedNetwork == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a network provider')));
+      return;
+    }
+
+    if (_selectedPlanData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a data plan')));
       return;
     }
 

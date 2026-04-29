@@ -19,6 +19,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referralController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -125,6 +126,14 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                         LengthLimitingTextInputFormatter(6),
                       ],
                       validator: (v) => v!.length != 6 ? 'Password must be 6 digits' : null,
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    _buildInputField(
+                      controller: _referralController,
+                      label: 'Referral Code (Optional)',
+                      icon: Icons.card_giftcard_rounded,
+                      validator: (v) => null,
                     ),
                     
                     const SizedBox(height: 40),
@@ -273,6 +282,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
         password: _passwordController.text,
+        referralCode: _referralController.text.trim(),
       );
       
       if (success && mounted) {

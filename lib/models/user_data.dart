@@ -20,6 +20,7 @@ class User {
   final bool hasPin;
   final UserSetting? userSettings;
   final VirtualAccount? virtualAccount;
+  final ReferralData? referral;
   final DateTime? createdAt;
 
   User({
@@ -36,6 +37,7 @@ class User {
     required this.hasPin,
     this.userSettings,
     this.virtualAccount,
+    this.referral,
     this.createdAt,
   });
 
@@ -58,6 +60,7 @@ class User {
       virtualAccount: (json['virtualAccount'] ?? json['virtual_account']) != null
           ? VirtualAccount.fromJson(json['virtualAccount'] ?? json['virtual_account'])
           : null,
+      referral: json['referral'] != null ? ReferralData.fromJson(json['referral']) : null,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
     );
   }
@@ -150,6 +153,26 @@ class Transaction {
       description: json['description'] ?? '',
       metadata: json['metadata'],
       createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+}
+
+class ReferralData {
+  final String code;
+  final int totalReferrals;
+  final double totalEarned;
+
+  ReferralData({
+    required this.code,
+    required this.totalReferrals,
+    required this.totalEarned,
+  });
+
+  factory ReferralData.fromJson(Map<String, dynamic> json) {
+    return ReferralData(
+      code: json['code'] ?? '',
+      totalReferrals: json['total_referrals'] ?? 0,
+      totalEarned: double.tryParse(json['total_earned'].toString()) ?? 0.0,
     );
   }
 }

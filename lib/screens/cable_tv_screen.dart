@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
+import 'transaction_success_screen.dart';
+import '../models/user_data.dart';
 import 'package:intl/intl.dart';
 
 class CableTVScreen extends ConsumerStatefulWidget {
@@ -17,18 +19,28 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
   final _formKey = GlobalKey<FormState>();
   final _smartcardController = TextEditingController();
   
-  String? _selectedProvider;
+  String? _selectedProvider = 'dstv';
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchPlans('dstv');
+    });
+  }
   Map<String, dynamic>? _selectedPlan;
   List<dynamic> _plans = [];
   bool _isLoadingPlans = false;
   bool _isValidated = false;
   String? _accountName;
   bool _isVerifying = false;
+  bool _isProcessing = false;
 
   final List<Map<String, String>> _providers = [
     {'name': 'DSTV', 'id': 'dstv'},
     {'name': 'GOTV', 'id': 'gotv'},
     {'name': 'Startimes', 'id': 'startimes'},
+    {'name': 'Showmax', 'id': 'showmax'},
   ];
 
   @override
@@ -46,7 +58,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
 
     try {
       final api = ref.read(apiServiceProvider);
-      final response = await api.get('/cable/plans', queryParameters: {'cablename': providerId.toUpperCase()});
+      final response = await api.get('/vtu/variations', queryParameters: {'serviceID': providerId.toLowerCase()});
       
       if (response.data['responseSuccessful']) {
         setState(() {
@@ -75,8 +87,8 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
     try {
       final api = ref.read(apiServiceProvider);
       final response = await api.post('/cable/validate', data: {
-        'cablename': _selectedProvider!.toUpperCase(),
-        'smartcard': _smartcardController.text.trim(),
+        'serviceID': _selectedProvider!.toLowerCase(),
+        'billersCode': _smartcardController.text.trim(),
       });
 
       if (response.data['responseSuccessful']) {
@@ -100,7 +112,11 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
   }
 
   Future<void> _handlePayment() async {
-    if (!_formKey.currentState!.validate() || !_isValidated || _selectedPlan == null) return;
+    if (_selectedPlan == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a package')));
+      return;
+    }
+    if (!_formKey.currentState!.validate() || !_isValidated) return;
 
     final pinResult = await Navigator.push(
       context,
@@ -113,34 +129,49 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
   }
 
   Future<void> _processTransaction(String pin) async {
+    setState(() => _isProcessing = true);
     try {
       final api = ref.read(apiServiceProvider);
       final response = await api.post('/cable/purchase', data: {
-        'cablename': _selectedProvider!.toUpperCase(),
-        'cableplan': _selectedPlan!['plan_code'] ?? _selectedPlan!['id'],
-        'smartcard': _smartcardController.text.trim(),
-        'amount': _selectedPlan!['amount'],
+        'serviceID': _selectedProvider!.toLowerCase(),
+        'variation_code': _selectedPlan!['variation_code'] ?? _selectedPlan!['id'],
+        'billersCode': _smartcardController.text.trim(),
+        'amount': _selectedPlan!['variation_amount'] ?? _selectedPlan!['amount'],
+        'phone': ref.read(authProvider).user?.phone ?? '',
         'pin': pin,
       });
 
       if (response.data['responseSuccessful']) {
         if (mounted) {
           await ref.read(authProvider.notifier).saveStoredPin(pin);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cable TV subscription successful!'), backgroundColor: Colors.green),
-          );
+          final transaction = Transaction.fromJson(response.data['responseBody']);
           await ref.read(authProvider.notifier).refreshProfile();
-          Navigator.pop(context);
+          
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TransactionSuccessScreen(transaction: transaction),
+              ),
+            );
+          }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed')),
-        );
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     }
   }
 
@@ -179,9 +210,92 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                   _buildProviderDropdown(),
                   
                   const SizedBox(height: 24),
-                  const Text('Select Plan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  _buildPlanDropdown(),
+                  if (_selectedProvider != null) ...[
+                    const Text(
+                      'Choose Package',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    if (_isLoadingPlans)
+                      const Center(child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(color: Color(0xFF011B60)),
+                      ))
+                    else if (_plans.isEmpty)
+                      const Center(child: Text('No packages available.'))
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.3,
+                        ),
+                        itemCount: _plans.length,
+                        itemBuilder: (context, index) {
+                          final plan = _plans[index];
+                          final isSelected = _selectedPlan == plan;
+                          
+                          return GestureDetector(
+                            onTap: () => setState(() {
+                              _selectedPlan = plan;
+                              _isValidated = false;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF011B60) : Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
+                                  width: 2,
+                                ),
+                                boxShadow: isSelected ? [
+                                  BoxShadow(color: const Color(0xFF011B60).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
+                                ] : [],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    plan['name'].toString(),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      "₦${plan['variation_amount']}",
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.white : const Color(0xFF011B60),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
                   
                   const SizedBox(height: 24),
                   _buildTextField(
@@ -189,7 +303,12 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                     controller: _smartcardController,
                     hint: 'Enter IUC or Smartcard number',
                     keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() => _isValidated = false),
+                    onChanged: (val) {
+                      setState(() => _isValidated = false);
+                      if (val.length == 10 && !_isVerifying) {
+                        _verifySmartcard();
+                      }
+                    },
                   ),
                   
                   if (_isValidated && _accountName != null)
@@ -220,10 +339,10 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
                       ),
-                      child: _isVerifying 
-                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(
-                            _isValidated ? 'Pay ${_selectedPlan != null ? currencyFormat.format(_selectedPlan!['amount']) : ''}' : 'Verify Smartcard',
+                      child: Text(
+                            _isValidated 
+                                ? 'Pay ${_selectedPlan != null ? currencyFormat.format(double.tryParse(_selectedPlan!['variation_amount']?.toString() ?? _selectedPlan!['amount']?.toString() ?? '0') ?? 0) : ''}' 
+                                : 'Verify Smartcard',
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                     ),
@@ -232,7 +351,8 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
               ),
             ),
           ),
-          if (authState.isLoading) const CustomLoader(message: 'Processing Transaction...'),
+          if (authState.isLoading || _isProcessing || _isVerifying) 
+            CustomLoader(message: _isVerifying ? 'Verifying Smartcard...' : 'Processing Transaction...'),
         ],
       ),
     );
@@ -291,34 +411,6 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
               _fetchPlans(val);
             }
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlanDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Map<String, dynamic>>(
-          value: _selectedPlan,
-          hint: Text(_isLoadingPlans ? 'Loading plans...' : 'Select Package'),
-          isExpanded: true,
-          items: _plans.map((p) {
-            return DropdownMenuItem<Map<String, dynamic>>(
-              value: Map<String, dynamic>.from(p),
-              child: Text("${p['name']} - ₦${p['amount']}"),
-            );
-          }).toList(),
-          onChanged: _isLoadingPlans ? null : (val) => setState(() {
-            _selectedPlan = val;
-            _isValidated = false;
-          }),
         ),
       ),
     );

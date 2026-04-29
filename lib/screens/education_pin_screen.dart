@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
+import 'transaction_success_screen.dart';
+import '../models/user_data.dart';
 import 'package:intl/intl.dart';
 
 class EducationPinScreen extends ConsumerStatefulWidget {
@@ -34,7 +36,9 @@ class _EducationPinScreenState extends ConsumerState<EducationPinScreen> {
     setState(() => _isLoadingPlans = true);
     try {
       final api = ref.read(apiServiceProvider);
-      final response = await api.get('/education/plans');
+      // Fetch for both WAEC and NECO or just one as a starting point
+      // VTPass typically has separate serviceIDs for each
+      final response = await api.get('/vtu/variations', queryParameters: {'serviceID': 'waec'});
       if (response.data['responseSuccessful']) {
         setState(() {
           _plans = response.data['responseBody'];
@@ -67,34 +71,46 @@ class _EducationPinScreenState extends ConsumerState<EducationPinScreen> {
     setState(() => _isProcessing = true);
     try {
       final api = ref.read(apiServiceProvider);
-      final totalAmount = (_selectedPlan!['amount'] as num) * _quantity;
       
       final response = await api.post('/education/purchase', data: {
-        'exam_body': _selectedPlan!['name'],
-        'quantity': _quantity,
-        'amount': totalAmount,
+        'serviceID': 'waec', // Or dynamically set based on selected plan
+        'variation_code': _selectedPlan!['variation_code'] ?? _selectedPlan!['id'],
+        'amount': _selectedPlan!['variation_amount'] ?? _selectedPlan!['amount'],
+        'phone': ref.read(authProvider).user?.phone ?? '',
         'pin': pin,
       });
 
       if (response.data['responseSuccessful']) {
         if (mounted) {
           await ref.read(authProvider.notifier).saveStoredPin(pin);
+          final transaction = Transaction.fromJson(response.data['responseBody']);
           await ref.read(authProvider.notifier).refreshProfile();
           
-          final body = response.data['responseBody'];
-          final pins = (response.data['responseBody']['transaction']['metadata']['pins'] as List?) ?? [];
-          
-          _showSuccessDialog(pins);
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TransactionSuccessScreen(transaction: transaction),
+              ),
+            );
+          }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Purchase failed')),
-        );
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.data['responseMessage'] ?? 'Purchase failed')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     }
   }
 

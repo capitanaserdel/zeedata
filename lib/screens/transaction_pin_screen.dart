@@ -110,57 +110,59 @@ class _TransactionPinScreenState extends ConsumerState<TransactionPinScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              // Lock Icon Header
-              const CircleAvatar(
-                radius: 40,
-                backgroundColor: Color(0xFFF1F5F9),
-                child: Icon(Icons.lock_person_rounded, size: 40, color: Color(0xFF011B60)),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Enter PIN',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1E293B)),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Authorize this transaction',
-                style: TextStyle(fontSize: 16, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 48),
-              
-              // 4-Digit PIN Dots
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (index) {
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 12),
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: index < _pin.length ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
-                    ),
-                  );
-                }),
-              ),
-              
-              const SizedBox(height: 48),
-              
-              if (_isLoading)
-                const CircularProgressIndicator(color: Color(0xFF011B60)),
-
-              const Spacer(),
-              
-              // Numeric Keypad (Reusing LockScreen design)
-              _buildKeypad(biometricEnabled),
-              
-              const SizedBox(height: 40),
-            ],
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                // Lock Icon Header
+                const CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Color(0xFFF1F5F9),
+                  child: Icon(Icons.lock_person_rounded, size: 40, color: Color(0xFF011B60)),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Enter PIN',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1E293B)),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Authorize this transaction',
+                  style: TextStyle(fontSize: 16, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 48),
+                
+                // 4-Digit PIN Dots
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(4, (index) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: index < _pin.length ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
+                      ),
+                    );
+                  }),
+                ),
+                
+                const SizedBox(height: 48),
+                
+                if (_isLoading)
+                  const CircularProgressIndicator(color: Color(0xFF011B60)),
+  
+                const SizedBox(height: 20),
+                
+                // Numeric Keypad (Reusing LockScreen design)
+                _buildKeypad(biometricEnabled),
+                
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),

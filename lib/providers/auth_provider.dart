@@ -400,6 +400,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String phone,
     required String password,
     String? pin,
+    String? referralCode,
   }) async {
     state = state.copyWith(isLoading: true, error: null, isAccountDeleted: false);
     try {
@@ -409,6 +410,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         'phone': phone,
         'password': password,
         'pin': pin,
+        'referral_code': referralCode,
       });
 
       if (response.data['responseSuccessful']) {

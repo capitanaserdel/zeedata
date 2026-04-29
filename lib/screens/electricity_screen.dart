@@ -4,6 +4,8 @@ import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
+import 'transaction_success_screen.dart';
+import '../models/user_data.dart';
 
 class ElectricityScreen extends ConsumerStatefulWidget {
   const ElectricityScreen({super.key});
@@ -21,7 +23,9 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   String _meterType = 'PREPAID'; // PREPAID or POSTPAID
   bool _isValidated = false;
   String? _accountName;
+  double? _minAmount;
   bool _isChecking = false;
+  bool _isProcessing = false;
 
   final List<Map<String, String>> _providers = [
     {'name': 'Ikeja Electric (IKEDC)', 'id': 'ikeja-electric'},
@@ -53,15 +57,47 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
 
     setState(() => _isChecking = true);
 
-    // TODO: Implement real API verification via Billstack
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isChecking = false;
-        _isValidated = true;
-        _accountName = "SALMA GAMBO (Verified)"; // Mock success
+    final api = ref.read(apiServiceProvider);
+    try {
+      final response = await api.post('/electricity/verify', data: {
+        'serviceID': _selectedProvider,
+        'billersCode': _meterController.text,
+        'type': _meterType.toLowerCase(),
       });
+
+      if (response.data['responseSuccessful']) {
+        if (mounted) {
+          final body = response.data['responseBody'];
+          setState(() {
+            _isChecking = false;
+            _isValidated = true;
+            _accountName = body['Customer_Name'] ?? body['name'] ?? "Verified Customer";
+            // Capture minimum amount if available (checking various possible keys)
+            final minAmtRaw = body['Min_Purchase_Amount'] ?? body['MIN_AMOUNT'] ?? body['minimal_amount'] ?? body['min_amount'];
+            
+            if (minAmtRaw != null && minAmtRaw.toString().isNotEmpty) {
+              _minAmount = double.tryParse(minAmtRaw.toString());
+            }
+            
+            // If still null or couldn't parse, default to 0.0
+            _minAmount ??= 0.0;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isChecking = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.data['responseMessage'] ?? 'Verification failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isChecking = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     }
   }
 
@@ -79,10 +115,51 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   }
 
   Future<void> _processTransaction(String pin) async {
-    // TODO: Implement real backend API call
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Electricity bill payment processing...')),
-    );
+    setState(() => _isProcessing = true);
+    final api = ref.read(apiServiceProvider);
+    
+    try {
+      final response = await api.post('/electricity/pay', data: {
+        'serviceID': _selectedProvider,
+        'billersCode': _meterController.text,
+        'variation_code': _meterType.toLowerCase(),
+        'amount': _amountController.text,
+        'phone': ref.read(authProvider).user?.phone ?? '',
+        'pin': pin,
+      });
+
+      if (response.data['responseSuccessful']) {
+        if (mounted) {
+          await ref.read(authProvider.notifier).saveStoredPin(pin);
+          final transaction = Transaction.fromJson(response.data['responseBody']);
+          await ref.read(authProvider.notifier).refreshProfile();
+          
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TransactionSuccessScreen(transaction: transaction),
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.data['responseMessage'] ?? 'Payment failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 
   @override
@@ -129,7 +206,12 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                     controller: _meterController,
                     hint: 'Enter your 11 or 13 digit meter number',
                     keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() => _isValidated = false),
+                    onChanged: (val) {
+                      setState(() => _isValidated = false);
+                      if ((val.length == 11 || val.length == 12 || val.length == 13) && !_isChecking) {
+                        _verifyMeter();
+                      }
+                    },
                   ),
                   
                   if (_isValidated && _accountName != null)
@@ -154,6 +236,14 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                     keyboardType: TextInputType.number,
                     prefixText: '₦ ',
                   ),
+                  if (_isValidated && _minAmount != null && _minAmount! > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, left: 4),
+                      child: Text(
+                        'Minimum amount: ₦${_minAmount!.toStringAsFixed(0)}',
+                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   
                   const SizedBox(height: 40),
                   
@@ -167,9 +257,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
                       ),
-                      child: _isChecking 
-                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(
+                    child: Text(
                             _isValidated ? 'Pay Bill' : 'Verify Meter',
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
@@ -179,7 +267,8 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
               ),
             ),
           ),
-          if (authState.isLoading) const CustomLoader(message: 'Processing Payment...'),
+          if (authState.isLoading || _isProcessing || _isChecking) 
+            CustomLoader(message: _isChecking ? 'Verifying Meter...' : 'Processing Payment...'),
         ],
       ),
     );

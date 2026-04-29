@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
+import 'transaction_success_screen.dart';
+import '../models/user_data.dart';
 import 'package:intl/intl.dart';
 
 class AirtimeScreen extends ConsumerStatefulWidget {
@@ -19,6 +20,7 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
   final _amountController = TextEditingController();
   final _pinController = TextEditingController();
   String? _selectedNetwork;
+  bool _isProcessing = false;
 
   final List<Map<String, dynamic>> _networks = [
     {'name': 'MTN', 'color': const Color(0xFFFFCC00), 'textColor': Colors.black},
@@ -169,7 +171,7 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
                   const SizedBox(height: 40),
                   
                   ElevatedButton(
-                    onPressed: authState.isLoading ? null : _handlePurchase,
+                    onPressed: (authState.isLoading || _isProcessing) ? null : _handlePurchase,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF011B60),
                       minimumSize: const Size(double.infinity, 64),
@@ -191,7 +193,7 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
             ),
           ),
           
-          if (authState.isLoading) const CustomLoader(message: 'Processing Transaction...'),
+          if (authState.isLoading || _isProcessing) const CustomLoader(message: 'Processing Transaction...'),
         ],
       ),
     );
@@ -239,6 +241,7 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
   }
 
   Future<void> _processTransaction(String pin) async {
+    setState(() => _isProcessing = true);
     print("🚀 Sending transaction with PIN: $pin");
     
     final api = ref.read(apiServiceProvider);
@@ -255,14 +258,22 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
           // Save the verified PIN for future biometric use
           await ref.read(authProvider.notifier).saveStoredPin(pin);
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Airtime purchased successfully!')),
-          );
+          final transaction = Transaction.fromJson(response.data['responseBody']);
           await ref.read(authProvider.notifier).refreshProfile();
-          Navigator.pop(context);
+          
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TransactionSuccessScreen(transaction: transaction),
+              ),
+            );
+          }
         }
       } else {
         if (mounted) {
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed')),
           );
@@ -270,6 +281,7 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString())),
         );
