@@ -18,7 +18,7 @@ import 'airtime_to_cash_screen.dart';
 import 'transactions_screen.dart';
 import 'cable_tv_screen.dart';
 import 'bulk_sms_screen.dart';
-import 'education_pin_screen.dart';
+import 'education_screen.dart';
 import 'recharge_pin_screen.dart';
 import '../widgets/user_avatar.dart';
 import '../models/user_data.dart' as model;
@@ -294,7 +294,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF0FDF4),
                       iconColor: const Color(0xFF10B981),
                       isTablet: isTablet,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationPinScreen())),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationScreen())),
                     ),
                     _QuickAction(
                       icon: Icons.vibration_rounded,

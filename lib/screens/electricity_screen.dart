@@ -23,6 +23,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   String _meterType = 'PREPAID'; // PREPAID or POSTPAID
   bool _isValidated = false;
   String? _accountName;
+  String? _address;
   double? _minAmount;
   bool _isChecking = false;
   bool _isProcessing = false;
@@ -72,6 +73,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
             _isChecking = false;
             _isValidated = true;
             _accountName = body['Customer_Name'] ?? body['name'] ?? "Verified Customer";
+            _address = body['Address'] ?? body['address'];
             // Capture minimum amount if available (checking various possible keys)
             final minAmtRaw = body['Min_Purchase_Amount'] ?? body['MIN_AMOUNT'] ?? body['minimal_amount'] ?? body['min_amount'];
             
@@ -79,8 +81,8 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
               _minAmount = double.tryParse(minAmtRaw.toString());
             }
             
-            // If still null or couldn't parse, default to 0.0
-            _minAmount ??= 0.0;
+            // If still null or couldn't parse, default to 1000.0 (Standard for most DisCos)
+            _minAmount ??= 1000.0;
           });
         }
       } else {
@@ -221,6 +223,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                       ),
                       const SizedBox(width: 12),
                       SizedBox(
+                        width: 100,
                         height: 56,
                         child: ElevatedButton(
                           onPressed: _isChecking ? null : _verifyMeter,
@@ -238,13 +241,43 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                   if (_isValidated && _accountName != null)
                     Container(
                       margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
-                      child: Row(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-                          const SizedBox(width: 8),
-                          Text(_accountName!, style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13)),
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _accountName!,
+                                  style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_address != null && _address!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.location_on, color: Color(0xFF10B981), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _address!,
+                                    style: const TextStyle(color: Color(0xFF065F46), fontSize: 13, height: 1.4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -290,7 +323,9 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
             ),
           ),
           if (authState.isLoading || _isProcessing || _isChecking) 
-            CustomLoader(message: _isChecking ? 'Verifying Meter...' : 'Processing Payment...'),
+            Positioned.fill(
+              child: CustomLoader(message: _isChecking ? 'Verifying Meter...' : 'Processing Payment...'),
+            ),
         ],
       ),
     );

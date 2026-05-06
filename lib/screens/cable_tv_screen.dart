@@ -318,6 +318,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                       ),
                       const SizedBox(width: 12),
                       SizedBox(
+                        width: 100,
                         height: 56,
                         child: ElevatedButton(
                           onPressed: _isVerifying ? null : _verifySmartcard,
@@ -374,7 +375,9 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
             ),
           ),
           if (authState.isLoading || _isProcessing || _isVerifying) 
-            CustomLoader(message: _isVerifying ? 'Verifying Smartcard...' : 'Processing Transaction...'),
+            Positioned.fill(
+              child: CustomLoader(message: _isVerifying ? 'Verifying Smartcard...' : 'Processing Transaction...'),
+            ),
         ],
       ),
     );

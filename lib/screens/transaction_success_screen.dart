@@ -76,6 +76,78 @@ class TransactionSuccessScreen extends StatelessWidget {
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Divider(color: Color(0xFFE2E8F0)),
                     ),
+                    
+                    // Token for Electricity or Education
+                    if (transaction.serviceType == 'ELECTRICITY' || transaction.serviceType == 'UTILITY' || transaction.serviceType == 'EDUCATION')
+                      (() {
+                        final providerResp = transaction.metadata?['provider_response'];
+                        
+                        // Extract token/PIN based on service type
+                        String? label = 'TOKEN';
+                        String? token;
+                        String? subText = 'Copy and enter this on your meter';
+
+                        if (transaction.serviceType == 'EDUCATION') {
+                          label = 'EXAMINATION PIN / SERIAL';
+                          subText = 'Keep this PIN safe for your result checking or registration';
+                          
+                          token = providerResp?['purchased_code'] ?? providerResp?['Pin'];
+                          
+                          if (token == null) {
+                            final tokens = providerResp?['tokens'];
+                            if (tokens is List && tokens.isNotEmpty) {
+                              token = tokens[0].toString();
+                            }
+                          }
+                          
+                          if (token == null) {
+                            final cards = providerResp?['cards'];
+                            if (cards is List && cards.isNotEmpty) {
+                              final card = cards[0];
+                              token = "${card['Serial']} / ${card['Pin']}";
+                            }
+                          }
+                        } else {
+                          token = providerResp?['mainToken'] ?? 
+                                  providerResp?['purchased_code'] ?? 
+                                  providerResp?['token'] ?? 
+                                  providerResp?['cards']?[0]?['pin'];
+                        }
+                        
+                        if (token != null) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF7ED),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFFED7AA)),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  label!,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFC2410C), letterSpacing: 1.2),
+                                ),
+                                const SizedBox(height: 8),
+                                SelectableText(
+                                  token.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF9A3412), letterSpacing: 1),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  subText!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFFC2410C)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      })(),
+
                     _buildSummaryRow('Service', transaction.serviceType),
                     const SizedBox(height: 12),
                     _buildSummaryRow('Reference', transaction.reference),

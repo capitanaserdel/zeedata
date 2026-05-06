@@ -39,9 +39,9 @@ class _CustomLoaderState extends State<CustomLoader> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
         children: [
           // Blurred Background
           BackdropFilter(
