@@ -74,15 +74,15 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
             _isValidated = true;
             _accountName = body['Customer_Name'] ?? body['name'] ?? "Verified Customer";
             _address = body['Address'] ?? body['address'];
-            // Capture minimum amount if available (checking various possible keys)
-            final minAmtRaw = body['Min_Purchase_Amount'] ?? body['MIN_AMOUNT'] ?? body['minimal_amount'] ?? body['min_amount'];
+            // Capture minimum amount from API response (do not hardcode a fallback)
+            final minAmtRaw = body['Minimum_Amount'] ?? body['Min_Purchase_Amount']
+                ?? body['MIN_AMOUNT'] ?? body['minimal_amount'] ?? body['min_amount'];
             
-            if (minAmtRaw != null && minAmtRaw.toString().isNotEmpty) {
-              _minAmount = double.tryParse(minAmtRaw.toString());
-            }
-            
-            // If still null or couldn't parse, default to 1000.0 (Standard for most DisCos)
-            _minAmount ??= 1000.0;
+            final parsedMin = minAmtRaw != null
+                ? double.tryParse(minAmtRaw.toString())
+                : null;
+            // Only set if the API returned a meaningful positive value
+            _minAmount = (parsedMin != null && parsedMin > 0) ? parsedMin : null;
           });
         }
       } else {
