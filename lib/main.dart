@@ -9,6 +9,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/create_pin_screen.dart';
 import 'screens/registration_screen.dart';
+import 'widgets/custom_loader.dart';
 
 void main() {
   runApp(const ProviderScope(child: ZeeDataApp()));
@@ -31,7 +32,7 @@ class ZeeDataApp extends ConsumerWidget {
   }
 
   Widget _getHome(AuthState authState) {
-    if (authState.isLoading) {
+    if (authState.isInitializing) {
       debugPrint('🏠 Routing to: SplashScreen');
       return const SplashScreen();
     }

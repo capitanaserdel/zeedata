@@ -11,6 +11,7 @@ class AuthState {
   final Wallet? wallet;
   final List<Transaction> recentTransactions;
   final bool isLoading;
+  final bool isInitializing;
   final bool isLoginBioLoading;
   final bool isTransBioLoading;
   final String? error;
@@ -29,6 +30,7 @@ class AuthState {
     this.wallet,
     this.recentTransactions = const [],
     this.isLoading = false,
+    this.isInitializing = true,
     this.isLoginBioLoading = false,
     this.isTransBioLoading = false,
     this.error,
@@ -44,6 +46,7 @@ class AuthState {
     Wallet? wallet,
     List<Transaction>? recentTransactions,
     bool? isLoading,
+    bool? isInitializing,
     bool? isLoginBioLoading,
     bool? isTransBioLoading,
     String? error,
@@ -58,6 +61,7 @@ class AuthState {
       wallet: wallet ?? this.wallet,
       recentTransactions: recentTransactions ?? this.recentTransactions,
       isLoading: isLoading ?? this.isLoading,
+      isInitializing: isInitializing ?? this.isInitializing,
       isLoginBioLoading: isLoginBioLoading ?? this.isLoginBioLoading,
       isTransBioLoading: isTransBioLoading ?? this.isTransBioLoading,
       error: error,
@@ -164,6 +168,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isAuthenticated: true,
             isLocked: true,
             isLoading: false,
+            isInitializing: false,
             isFirstTime: isFirstTime,
             user: user,
             wallet: Wallet.fromJson(body['wallet']),
@@ -175,6 +180,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           // Token expired or invalid
           state = state.copyWith(
             isLoading: false, 
+            isInitializing: false,
             isAuthenticated: false, 
             isFirstTime: isFirstTime,
             user: lastUser['name'] != null ? User(
@@ -197,6 +203,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } else {
         state = state.copyWith(
           isLoading: false, 
+          isInitializing: false,
           isFirstTime: isFirstTime,
           user: lastUser['name'] != null ? User(
             id: 0, 
@@ -216,7 +223,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isLoading: false, isInitializing: false);
     }
   }
 
@@ -397,8 +404,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> register({
     required String fullname,
     required String email,
-    required String phone,
     required String password,
+    required String otp,
     String? pin,
     String? referralCode,
   }) async {
@@ -407,8 +414,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final response = await _apiService.post('/register', data: {
         'fullname': fullname,
         'email': email,
-        'phone': phone,
         'password': password,
+        'otp': otp,
         'pin': pin,
         'referral_code': referralCode,
       });
@@ -432,6 +439,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
           wallet: Wallet.fromJson(body['wallet']),
           recentTransactions: [],
         );
+        return true;
+      } else {
+        state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
+        return false;
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> sendRegistrationOtp(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiService.post('/registration/send-otp', data: {'email': email});
+      if (response.data['responseSuccessful']) {
+        state = state.copyWith(isLoading: false);
         return true;
       } else {
         state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
@@ -468,6 +492,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       ) : null,
       isAuthenticated: false,
       isLocked: true,
+      isInitializing: false,
     );
   }
 
@@ -476,6 +501,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState(
       isFirstTime: state.isFirstTime,
       shouldShowLogin: true,
+      isInitializing: false,
     );
   }
 
@@ -617,7 +643,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if ((response['responseSuccessful'] == true) || (response['message'] == 'Account deleted')) {
         debugPrint('🧹 Wiping session and setting isAccountDeleted=true');
         await _sessionManager.fullWipe();
-        state = AuthState(isFirstTime: false, isAccountDeleted: true);
+        state = AuthState(isFirstTime: false, isAccountDeleted: true, isInitializing: false);
         debugPrint('✅ State set: isAccountDeleted=${state.isAccountDeleted}');
         return true;
       } else {

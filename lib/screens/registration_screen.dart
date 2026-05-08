@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'login_screen.dart';
+import 'email_verification_screen.dart';
 
 class RegistrationScreen extends ConsumerStatefulWidget {
   const RegistrationScreen({super.key});
@@ -17,9 +18,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullnameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _referralController = TextEditingController();
+  
   bool _obscurePassword = true;
 
   @override
@@ -101,15 +102,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       icon: Icons.alternate_email_rounded,
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) => v!.isEmpty || !v.contains('@') ? 'Enter a valid email' : null,
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    _buildInputField(
-                      controller: _phoneController,
-                      label: 'Phone Number',
-                      icon: Icons.phone_android_rounded,
-                      keyboardType: TextInputType.phone,
-                      validator: (v) => v!.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 20),
                     
@@ -214,10 +206,31 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             ),
           ),
           
-          if (authState.isLoading) const CustomLoader(message: 'Creating account...'),
+          if (authState.isLoading) const CustomLoader(message: 'Sending code...'),
         ],
       ),
     );
+  }
+
+  Future<void> _handleRegistration() async {
+    if (_formKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      final success = await ref.read(authProvider.notifier).sendRegistrationOtp(email);
+      
+      if (success && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EmailVerificationScreen(
+              fullname: _fullnameController.text.trim(),
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+              referralCode: _referralController.text.trim(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildInputField({
@@ -273,21 +286,5 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       ),
     );
-  }
-
-  Future<void> _handleRegistration() async {
-    if (_formKey.currentState!.validate()) {
-      final success = await ref.read(authProvider.notifier).register(
-        fullname: _fullnameController.text.trim(),
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-        password: _passwordController.text,
-        referralCode: _referralController.text.trim(),
-      );
-      
-      if (success && mounted) {
-        // State change in main.dart handles navigation
-      }
-    }
   }
 }
