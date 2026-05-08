@@ -46,11 +46,20 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
     
     setState(() {
       _charCount = message.length;
-      _pages = (_charCount / 160).ceil();
+      
+      // Simple Unicode detection: if any character code is > 127
+      bool isUnicode = message.runes.any((r) => r > 127);
+      int charsPerPage = isUnicode ? 70 : 160;
+      
+      _pages = (_charCount / charsPerPage).ceil();
       if (_pages == 0) _pages = 1;
       
-      // Count recipients (comma or newline separated)
-      final list = recipients.split(RegExp(r'[,\n\r]')).where((s) => s.trim().isNotEmpty).toList();
+      // Count unique recipients (comma or newline separated)
+      final list = recipients.split(RegExp(r'[,\n\r]'))
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toSet() // Use Set for unique count
+          .toList();
       _recipientCount = list.length;
       
       _totalCost = _recipientCount * _pages * _ratePerPage;
