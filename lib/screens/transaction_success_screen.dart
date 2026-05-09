@@ -1,11 +1,70 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/user_data.dart';
 
-class TransactionSuccessScreen extends StatelessWidget {
+class TransactionSuccessScreen extends StatefulWidget {
   final Transaction transaction;
 
   const TransactionSuccessScreen({super.key, required this.transaction});
+
+  @override
+  State<TransactionSuccessScreen> createState() => _TransactionSuccessScreenState();
+}
+
+class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> {
+  final ScreenshotController _screenshotController = ScreenshotController();
+  bool _isSharing = false;
+
+  Future<void> _shareReceipt() async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+    
+    try {
+      // Small delay to ensure rendering is complete
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      debugPrint('📸 Capturing screenshot...');
+      final Uint8List? imageBytes = await _screenshotController.capture(
+        pixelRatio: 2.0,
+      );
+      
+      if (imageBytes != null) {
+        debugPrint('✅ Screenshot captured, size: ${imageBytes.length} bytes');
+        final directory = await getTemporaryDirectory();
+        final fileName = 'ZD_Receipt_${widget.transaction.reference}.png';
+        final imageFile = File('${directory.path}/$fileName');
+        await imageFile.writeAsBytes(imageBytes);
+        debugPrint('💾 Image saved to: ${imageFile.path}');
+
+        debugPrint('📤 Opening share sheet...');
+        await Share.shareXFiles(
+          [XFile(imageFile.path)],
+          text: 'ZeeData Receipt - ${widget.transaction.serviceType} purchase of ${widget.transaction.amount}',
+          subject: 'Transaction Receipt',
+        );
+      } else {
+        throw 'Failed to generate receipt image';
+      }
+    } catch (e, stack) {
+      debugPrint('❌ SHARE RECEIPT ERROR: $e');
+      debugPrint('❌ STACKTRACE: $stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,139 +80,150 @@ class TransactionSuccessScreen extends StatelessWidget {
             children: [
               const Spacer(),
               
-              // Success Animation / Icon
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: Color(0xFF4CAF50),
-                  size: 80,
-                ),
-              ),
-              
-              const SizedBox(height: 32),
-              
-              const Text(
-                'Transaction Successful',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-              
-              const SizedBox(height: 8),
-              
-              Text(
-                'Your ${transaction.serviceType.toLowerCase()} purchase was completed successfully.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              
-              const SizedBox(height: 48),
-              
-              // Summary Box
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                ),
-                child: Column(
-                  children: [
-                    _buildSummaryRow('Amount', currencyFormat.format(transaction.amount), isAmount: true),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Divider(color: Color(0xFFE2E8F0)),
-                    ),
-                    
-                    // Token for Electricity or Education
-                    if (transaction.serviceType == 'ELECTRICITY' || transaction.serviceType == 'UTILITY' || transaction.serviceType == 'EDUCATION')
-                      (() {
-                        final providerResp = transaction.metadata?['provider_response'];
-                        
-                        // Extract token/PIN based on service type
-                        String? label = 'TOKEN';
-                        String? token;
-                        String? subText = 'Copy and enter this on your meter';
-
-                        if (transaction.serviceType == 'EDUCATION') {
-                          label = 'EXAMINATION PIN / SERIAL';
-                          subText = 'Keep this PIN safe for your result checking or registration';
-                          
-                          token = providerResp?['purchased_code'] ?? providerResp?['Pin'];
-                          
-                          if (token == null) {
-                            final tokens = providerResp?['tokens'];
-                            if (tokens is List && tokens.isNotEmpty) {
-                              token = tokens[0].toString();
-                            }
-                          }
-                          
-                          if (token == null) {
-                            final cards = providerResp?['cards'];
-                            if (cards is List && cards.isNotEmpty) {
-                              final card = cards[0];
-                              token = "${card['Serial']} / ${card['Pin']}";
-                            }
-                          }
-                        } else {
-                          token = providerResp?['mainToken'] ?? 
-                                  providerResp?['purchased_code'] ?? 
-                                  providerResp?['token'] ?? 
-                                  providerResp?['cards']?[0]?['pin'];
-                        }
-                        
-                        if (token != null) {
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 20),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF7ED),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFFED7AA)),
+              Screenshot(
+                controller: _screenshotController,
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      // Success Animation / Icon
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE8F5E9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF4CAF50),
+                          size: 60,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      const Text(
+                        'Transaction Successful',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      Text(
+                        'Your ${widget.transaction.serviceType.toLowerCase()} purchase was completed successfully.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      // Summary Box
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildSummaryRow('Amount', currencyFormat.format(widget.transaction.amount), isAmount: true),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Divider(color: Color(0xFFE2E8F0)),
                             ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  label!,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFC2410C), letterSpacing: 1.2),
-                                ),
-                                const SizedBox(height: 8),
-                                SelectableText(
-                                  token.toString(),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF9A3412), letterSpacing: 1),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  subText!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFFC2410C)),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      })(),
+                            
+                            // Token for Electricity or Education
+                            if (widget.transaction.serviceType == 'ELECTRICITY' || widget.transaction.serviceType == 'UTILITY' || widget.transaction.serviceType == 'EDUCATION')
+                              (() {
+                                final providerResp = widget.transaction.metadata?['provider_response'];
+                                
+                                // Extract token/PIN based on service type
+                                String? label = 'TOKEN';
+                                String? token;
+                                String? subText = 'Copy and enter this on your meter';
 
-                    _buildSummaryRow('Service', transaction.serviceType),
-                    const SizedBox(height: 12),
-                    _buildSummaryRow('Reference', transaction.reference),
-                    const SizedBox(height: 12),
-                    _buildSummaryRow('Date', dateFormat.format(transaction.createdAt)),
-                  ],
+                                if (widget.transaction.serviceType == 'EDUCATION') {
+                                  label = 'EXAMINATION PIN / SERIAL';
+                                  subText = 'Keep this PIN safe for your result checking or registration';
+                                  
+                                  token = providerResp?['purchased_code'] ?? providerResp?['Pin'];
+                                  
+                                  if (token == null) {
+                                    final tokens = providerResp?['tokens'];
+                                    if (tokens is List && tokens.isNotEmpty) {
+                                      token = tokens[0].toString();
+                                    }
+                                  }
+                                  
+                                  if (token == null) {
+                                    final cards = providerResp?['cards'];
+                                    if (cards is List && cards.isNotEmpty) {
+                                      final card = cards[0];
+                                      token = "${card['Serial']} / ${card['Pin']}";
+                                    }
+                                  }
+                                } else {
+                                  token = providerResp?['mainToken'] ?? 
+                                          providerResp?['purchased_code'] ?? 
+                                          providerResp?['token'] ?? 
+                                          providerResp?['cards']?[0]?['pin'];
+                                }
+                                
+                                if (token != null) {
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 20),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF7ED),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: const Color(0xFFFED7AA)),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          label!,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFC2410C), letterSpacing: 1.2),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        SelectableText(
+                                          token.toString(),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF9A3412), letterSpacing: 1),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          subText!,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 11, color: Color(0xFFC2410C)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              })(),
+
+                            _buildSummaryRow('Service', widget.transaction.serviceType),
+                            const SizedBox(height: 12),
+                            _buildSummaryRow('Reference', widget.transaction.reference),
+                            const SizedBox(height: 12),
+                            _buildSummaryRow('Date', dateFormat.format(widget.transaction.createdAt)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               
@@ -164,8 +234,6 @@ class TransactionSuccessScreen extends StatelessWidget {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      // Navigator.popUntil(context, (route) => route.isFirst);
-                      // Or just go back to main screen
                       Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     style: ElevatedButton.styleFrom(
@@ -181,20 +249,25 @@ class TransactionSuccessScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: () {
-                      // Logic to share or download receipt
-                    },
+                    onPressed: _isSharing ? null : _shareReceipt,
                     style: TextButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.share_rounded, size: 20, color: Color(0xFF011B60)),
-                        SizedBox(width: 8),
+                        if (_isSharing)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF011B60)),
+                          )
+                        else
+                          const Icon(Icons.share_rounded, size: 20, color: Color(0xFF011B60)),
+                        const SizedBox(width: 8),
                         Text(
-                          'Share Receipt',
-                          style: TextStyle(
+                          _isSharing ? 'Preparing Receipt...' : 'Share Receipt',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF011B60),
