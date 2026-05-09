@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/custom_loader.dart';
 import 'forgot_password_screen.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
@@ -126,95 +127,100 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              Spacer(flex: isSmallScreen ? 1 : 2),
-              // Header Section
-              CircleAvatar(
-                radius: isSmallScreen ? 30 : 40,
-                backgroundColor: const Color(0xFFF5F7FA),
-                child: Icon(Icons.lock_outline, size: isSmallScreen ? 30 : 40, color: AppColors.primary),
-              ),
-              SizedBox(height: isSmallScreen ? 12 : 24),
-              Text(
-                'Welcome Back,',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: isSmallScreen ? 16 : 18, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                user?.fullname ?? 'User',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: isSmallScreen ? 20 : 24, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-              Spacer(flex: isSmallScreen ? 1 : 2),
-              
-              // 6-Digit Password Dots
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (index) {
-                  return Container(
-                    margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 10),
-                    width: isSmallScreen ? 12 : 14,
-                    height: isSmallScreen ? 12 : 14,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: index < _password.length ? AppColors.primary : Colors.grey[300],
-                      border: Border.all(
-                        color: index < _password.length ? AppColors.primary : Colors.grey[300]!,
-                        width: 1,
-                      ),
-                    ),
-                  );
-                }),
-              ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  Spacer(flex: isSmallScreen ? 1 : 2),
+                  // Header Section
+                  CircleAvatar(
+                    radius: isSmallScreen ? 30 : 40,
+                    backgroundColor: const Color(0xFFF5F7FA),
+                    child: Icon(Icons.lock_outline, size: isSmallScreen ? 30 : 40, color: AppColors.primary),
+                  ),
+                  SizedBox(height: isSmallScreen ? 12 : 24),
+                  Text(
+                    'Welcome Back,',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: isSmallScreen ? 16 : 18, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user?.fullname ?? 'User',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: isSmallScreen ? 20 : 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  ),
+                  Spacer(flex: isSmallScreen ? 1 : 2),
+                  
+                  // 6-Digit Password Dots
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (index) {
+                      return Container(
+                        margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 10),
+                        width: isSmallScreen ? 12 : 14,
+                        height: isSmallScreen ? 12 : 14,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: index < _password.length ? AppColors.primary : Colors.grey[300],
+                          border: Border.all(
+                            color: index < _password.length ? AppColors.primary : Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
 
-              Spacer(flex: isSmallScreen ? 2 : 3),
-              
-              // Numeric Keypad
-              Opacity(
-                opacity: _isLoading ? 0.5 : 1.0,
-                child: AbsorbPointer(
-                  absorbing: _isLoading,
-                  child: _buildKeypad(biometricEnabled, buttonSize, verticalPadding),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-                    );
-                  },
-                  child: const Text(
-                    'Forgot Password?',
-                    style: TextStyle(
-                      color: Color(0xFF011B60),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+                  Spacer(flex: isSmallScreen ? 2 : 3),
+                  
+                  // Numeric Keypad
+                  Opacity(
+                    opacity: _isLoading ? 0.5 : 1.0,
+                    child: AbsorbPointer(
+                      absorbing: _isLoading,
+                      child: _buildKeypad(biometricEnabled, buttonSize, verticalPadding),
                     ),
                   ),
-                ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                        );
+                      },
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          color: Color(0xFF011B60),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: isSmallScreen ? 12 : 24),
+                  
+                  // Switch Account Button
+                  TextButton(
+                    onPressed: _isLoading ? null : () => ref.read(authProvider.notifier).switchAccount(),
+                    child: Text(
+                      'Switch Account',
+                      style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  SizedBox(height: isSmallScreen ? 10 : 20),
+                ],
               ),
-              SizedBox(height: isSmallScreen ? 12 : 24),
-              
-              // Switch Account Button
-              TextButton(
-                onPressed: _isLoading ? null : () => ref.read(authProvider.notifier).switchAccount(),
-                child: Text(
-                  'Switch Account',
-                  style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600),
-                ),
-              ),
-              SizedBox(height: isSmallScreen ? 10 : 20),
-            ],
+            ),
           ),
-        ),
+          if (_isLoading) const CustomLoader(message: 'Logging you in...'),
+        ],
       ),
     );
   }
