@@ -21,6 +21,7 @@ class EducationScreen extends StatelessWidget {
         'icon': Icons.assignment_rounded,
         'color': const Color(0xFF1E293B),
         'desc': 'Pay for your WAEC exam registration easily.',
+        'enabled': false,
       },
       {
         'id': 'jamb',
@@ -28,6 +29,7 @@ class EducationScreen extends StatelessWidget {
         'icon': Icons.school_rounded,
         'color': const Color(0xFF0F172A),
         'desc': 'Buy UTME or Direct Entry PINs for JAMB registration.',
+        'enabled': false,
       },
     ];
 
@@ -62,6 +64,13 @@ class EducationScreen extends StatelessWidget {
                 final service = services[index];
                 return InkWell(
                   onTap: () {
+                    if (service['enabled'] == false) {
+                      String msg = service['id'] == 'jamb' ? 'Not JAMB period' : 'Not ${service['name']} period';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(msg), backgroundColor: Colors.orange)
+                      );
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -83,35 +92,53 @@ class EducationScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: service['color'].withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                    child: Opacity(
+                      opacity: service['enabled'] == false ? 0.5 : 1.0,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: service['color'].withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(service['icon'], color: service['color'], size: 24),
                           ),
-                          child: Icon(service['icon'], color: service['color'], size: 24),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                service['name'],
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                service['desc'],
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
-                              ),
-                            ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      service['name'],
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                    ),
+                                    if (service['enabled'] == false) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('CLOSED', style: TextStyle(color: Colors.red, fontSize: 8, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  service['desc'],
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
-                      ],
+                          const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+                        ],
+                      ),
                     ),
                   ),
                 );

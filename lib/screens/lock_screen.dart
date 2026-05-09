@@ -48,7 +48,17 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     if (!mounted) return;
 
     if (!success) {
+      final error = ref.read(authProvider).error ?? 'Biometric authentication failed';
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
     // If success, state change in main.dart handles navigation
   }

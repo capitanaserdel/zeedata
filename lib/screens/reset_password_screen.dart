@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../providers/auth_provider.dart';
+import '../core/validators/app_validators.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'login_screen.dart';
@@ -198,7 +199,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(6),
                       ],
-                      validator: (v) => v!.length != 6 ? 'Password must be 6 digits' : null,
+                      validator: AppValidators.validatePassword,
                     ),
                     const SizedBox(height: 20),
                     

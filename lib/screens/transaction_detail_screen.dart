@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -202,11 +203,82 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             const Divider(height: 40),
             const Text('ADDITIONAL INFO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 1.5)),
             const SizedBox(height: 24),
+            
+            // Specifically look for Token in Electricity Transactions
+            if (widget.transaction.serviceType.toUpperCase().contains('ELECTRICITY')) 
+              _buildTokenRow(),
+
             ...widget.transaction.metadata!.entries.where((e) {
               final k = e.key.toLowerCase();
-              return !['source', 'amount_received', 'provider_response', 'status'].contains(k);
+              return !['source', 'amount_received', 'provider_response', 'status', 'token', 'maintoken', 'purchased_code'].contains(k);
             }).map((e) => _buildDetailRow(e.key.replaceAll('_', ' ').toUpperCase(), e.value.toString())),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTokenRow() {
+    String? token;
+    final metadata = widget.transaction.metadata;
+    if (metadata == null) return const SizedBox.shrink();
+
+    // 1. Check top level
+    token = metadata['token']?.toString() ?? 
+            metadata['purchased_code']?.toString() ?? 
+            metadata['mainToken']?.toString();
+
+    // 2. Check inside provider_response
+    if (token == null && metadata['provider_response'] != null) {
+      final pr = metadata['provider_response'];
+      token = pr['token']?.toString() ?? 
+              pr['purchased_code']?.toString() ?? 
+              pr['mainToken']?.toString();
+      
+      // Some providers nest it deeper
+      if (token == null && pr['content'] != null) {
+        final content = pr['content'];
+        token = content['token']?.toString() ?? 
+                content['purchased_code']?.toString() ?? 
+                content['mainToken']?.toString();
+      }
+    }
+
+    if (token == null || token.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBAE6FD)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ELECTRICITY TOKEN',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0369A1), letterSpacing: 1),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  token,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0C4A6E), letterSpacing: 2),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, color: Color(0xFF0369A1)),
+                onPressed: () {
+                   Clipboard.setData(ClipboardData(text: token!));
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Token copied to clipboard')));
+                },
+              ),
+            ],
+          ),
         ],
       ),
     );

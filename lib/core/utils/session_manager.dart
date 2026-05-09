@@ -48,13 +48,12 @@ class SessionManager {
     return await _secureStorage.read(key: keyUserPin);
   }
 
-  // User Login Password (for Lock Screen / Biometrics)
-  Future<void> savePassword(String password) async {
-    await _secureStorage.write(key: keyUserPassword, value: password);
-  }
-
-  Future<String?> getPassword() async {
-    return await _secureStorage.read(key: keyUserPassword);
+  // Clear Biometric Enrollment (Security Invalidation)
+  Future<void> clearBiometricEnrollment() async {
+    await setLoginBiometricsEnabled(false);
+    await setTransactionBiometricsEnabled(false);
+    await _secureStorage.delete(key: keyUserPin); // Invalidate stored PIN too
+    print("🔒 BIOMETRIC ENROLLMENT CLEARED");
   }
 
   // Login Biometrics

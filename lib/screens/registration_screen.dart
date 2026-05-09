@@ -128,7 +128,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(6),
                         ],
-                        validator: AppValidators.validatePin,
+                        validator: AppValidators.validatePassword,
                         helperText: 'A strong 6-digit numeric PIN for login.',
                       ),
                       const SizedBox(height: 20),

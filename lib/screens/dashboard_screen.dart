@@ -50,21 +50,34 @@ class DashboardScreen extends ConsumerWidget {
             slivers: [
               // Premium Header
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 10),
+                padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 5),
                 sliver: SliverToBoxAdapter(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Text(
-                            'Good Day,',
-                            style: TextStyle(fontSize: isTablet ? 16 : 14, color: Colors.blueGrey[400], fontWeight: FontWeight.w500),
+                          GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
+                            child: UserAvatar(
+                              name: user?.fullname ?? 'User',
+                              imageUrl: user?.picture,
+                              radius: isTablet ? 24 : 20,
+                            ),
                           ),
-                          Text(
-                            user?.fullname.split(' ').first ?? 'User',
-                            style: TextStyle(fontSize: isTablet ? 28 : 22, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Good Day,',
+                                style: TextStyle(fontSize: isTablet ? 16 : 14, color: Colors.blueGrey[400], fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                user?.fullname.split(' ').first ?? 'User',
+                                style: TextStyle(fontSize: isTablet ? 28 : 22, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -109,15 +122,6 @@ class DashboardScreen extends ConsumerWidget {
                               );
                             },
                           ),
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
-                            child: UserAvatar(
-                              name: user?.fullname ?? 'User',
-                              imageUrl: user?.picture,
-                              radius: isTablet ? 24 : 20,
-                            ),
-                          ),
                         ],
                       ),
                     ],
@@ -127,7 +131,7 @@ class DashboardScreen extends ConsumerWidget {
 
               // Wallet Card
               SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 20),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 10),
                 sliver: SliverToBoxAdapter(
                   child: Center(
                     child: ConstrainedBox(

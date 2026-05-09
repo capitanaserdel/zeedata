@@ -14,9 +14,24 @@ class AppValidators {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
+    if (value.length != 6) {
+      return 'Password must be exactly 6 digits';
     }
+    if (!RegExp(r'^\d+$').hasMatch(value)) {
+      return 'Password must contain only digits';
+    }
+
+    // Reject weak patterns
+    final weakPatterns = ['000000', '111111', '222222', '333333', '444444', '555555', '666666', '123456', '654321'];
+    if (weakPatterns.contains(value)) {
+      return 'Please choose a stronger password';
+    }
+
+    // Reject sequential or highly repeated numbers
+    if (_isSequential(value) || _isRepeated(value)) {
+      return 'Pattern is too weak. Avoid sequential or repeated numbers.';
+    }
+
     return null;
   }
 

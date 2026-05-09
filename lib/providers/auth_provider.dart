@@ -257,8 +257,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final token = body['accessToken'];
         await _sessionManager.saveToken(token);
         
-        // Also update the secure store to keep it fresh
-        await _sessionManager.savePassword(password);
+        // NO LONGER STORING RAW PASSWORD FOR BIOMETRICS (Banking Security Standard)
+        // await _sessionManager.savePassword(password);
 
         state = state.copyWith(
           isLoading: false,
@@ -285,10 +285,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final auth = LocalAuthentication();
     try {
       bool canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
-      final isEnabled = state.user?.userSettings?.passwordFingerprint ?? false;
+      final isEnabled = await _sessionManager.isLoginBiometricsEnabled();
       if (!canCheck || !isEnabled) return false;
 
-      // 1. Local biometric check
+      // 1. Local biometric check (FaceID/Fingerprint)
       bool authenticated = await auth.authenticate(
         localizedReason: 'Please authenticate to unlock ZeeData',
         options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
@@ -296,29 +296,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (!authenticated) return false;
 
-      // 2. Retrieve stored credentials for API auth
-      final lastUser = await _sessionManager.getLastUser();
-      final savedPassword = await _sessionManager.getPassword();
-      
-      if (lastUser['email'] == null || savedPassword == null) {
-        state = state.copyWith(error: 'Biometric login requires previous password login');
-        return false;
-      }
-
       state = state.copyWith(isLoading: true, error: null);
 
-      // 3. Real Backend Authentication
-      print("🌐 LOCK SCREEN: CALLING LOGIN API FOR BIOMETRIC AUTH");
-      final response = await _apiService.post('/login', data: {
-        'email': lastUser['email'],
-        'password': savedPassword,
-      });
+      // 2. Token-Based Authentication (Banking Security Standard)
+      // Instead of sending the password again, we verify the existing session token.
+      // This works because the token is invalidated on the backend if the password changes.
+      print("🌐 LOCK SCREEN: VERIFYING SESSION TOKEN FOR BIOMETRIC AUTH");
+      final response = await _apiService.get('/profile');
 
       if (response.data['responseSuccessful']) {
         final body = response.data['responseBody'];
-        final token = body['accessToken'];
-        await _sessionManager.saveToken(token);
-
+        
         state = state.copyWith(
           isLoading: false,
           isAuthenticated: true,
@@ -331,11 +319,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       } else {
-        state = state.copyWith(isLoading: false, error: 'Biometric auth failed on server');
+        // If profile fetch fails (e.g. 401), the token is invalid (expired or revoked due to password change)
+        await _sessionManager.clearBiometricEnrollment();
+        state = state.copyWith(
+          isLoading: false, 
+          error: 'Session expired or password changed. Please login again.',
+          isAuthenticated: false,
+          isLocked: false
+        );
         return false;
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Handle network errors or other failures
+      state = state.copyWith(isLoading: false, error: 'Authentication failed. Please use your password.');
       return false;
     }
   }
@@ -369,7 +365,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         // Save user info for Welcome Back
         await _sessionManager.saveLastUser(user.fullname, user.email);
         await _sessionManager.saveToken(token);
-        await _sessionManager.savePassword(password);
+        // await _sessionManager.savePassword(password); // REMOVED FOR SECURITY
         
         final loginBio = user.userSettings?.passwordFingerprint ?? false;
         final transBio = user.userSettings?.pinFingerprint ?? false;
@@ -427,7 +423,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = User.fromJson(body['user']);
         await _sessionManager.saveLastUser(user.fullname, user.email);
         await _sessionManager.saveToken(token);
-        await _sessionManager.savePassword(password);
+        // await _sessionManager.savePassword(password); // REMOVED FOR SECURITY
         await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
         await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
         await _sessionManager.setFirstTimeComplete();
@@ -561,8 +557,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _settingsService.changePassword(currentPassword, newPassword);
-      state = state.copyWith(isLoading: false);
-      return response['responseSuccessful'] ?? false;
+      if (response['responseSuccessful'] == true) {
+        // SECURITY: After password change, invalidate local biometric enrollment
+        // and force a fresh login with the new password.
+        await _sessionManager.clearBiometricEnrollment();
+        await logout();
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Password changed successfully. Please login with your new password.'
+        );
+        return true;
+      } else {
+        state = state.copyWith(isLoading: false, error: response['responseMessage'] ?? 'Failed to change password');
+        return false;
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
