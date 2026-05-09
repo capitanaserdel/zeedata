@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'bills_screen.dart';
+import 'electricity_screen.dart';
 import 'notifications_screen.dart';
 import '../providers/notification_provider.dart';
 import 'package:intl/intl.dart';
@@ -266,7 +266,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     _QuickAction(
                       icon: Icons.swap_horizontal_circle_rounded,
-                      label: 'A2C',
+                      label: 'Airtime to cash',
                       color: const Color(0xFFFFF7ED),
                       iconColor: const Color(0xFFF97316),
                       isTablet: isTablet,
@@ -305,12 +305,12 @@ class DashboardScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RechargePinScreen())),
                     ),
                     _QuickAction(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'Bills',
-                      color: const Color(0xFFFFF1F2),
-                      iconColor: const Color(0xFFE11D48),
+                      icon: Icons.electric_bolt_rounded,
+                      label: 'Electricity',
+                      color: const Color(0xFFFFFBEB),
+                      iconColor: const Color(0xFFF59E0B),
                       isTablet: isTablet,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BillsScreen())),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ElectricityScreen())),
                     ),
                   ]),
                 ),
