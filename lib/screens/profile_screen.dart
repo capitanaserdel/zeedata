@@ -9,6 +9,7 @@ import '../core/constants.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_data.dart';
 import '../widgets/user_avatar.dart';
+import '../widgets/custom_loader.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -20,13 +21,19 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final LocalAuthentication auth = LocalAuthentication();
   final ImagePicker _picker = ImagePicker();
+  bool _isUploading = false;
 
   Future<void> _changePicture() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      final success = await ref.read(authProvider.notifier).updateProfile(imagePath: image.path);
-      if (success) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile picture updated')));
+      setState(() => _isUploading = true);
+      try {
+        final success = await ref.read(authProvider.notifier).updateProfile(imagePath: image.path);
+        if (success) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile picture updated')));
+        }
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
       }
     }
   }
@@ -260,148 +267,153 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                _buildMinimalHeader(user),
-                const SizedBox(height: 40),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionLabel('PERSONAL INFO'),
-                      const SizedBox(height: 12),
-                      _buildMinimalContainer([
-                        _SettingsItem(
-                          icon: Icons.person_outline_rounded,
-                          title: user?.fullname ?? 'Full Name',
-                          subtitle: 'Full Name',
-                          onTap: () {},
-                        ),
-                        const _MinimalDivider(),
-                        _SettingsItem(
-                          icon: Icons.alternate_email_rounded,
-                          title: user?.email ?? 'Email Address',
-                          subtitle: 'Email',
-                          onTap: () {},
-                        ),
-                      ]),
-                      const SizedBox(height: 32),
-                      _buildSectionLabel('REFERRAL PROGRAM'),
-                      const SizedBox(height: 12),
-                      _buildMinimalContainer([
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFF1F5F9)),
+      body: Stack(
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    _buildMinimalHeader(user),
+                    const SizedBox(height: 40),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionLabel('PERSONAL INFO'),
+                          const SizedBox(height: 12),
+                          _buildMinimalContainer([
+                            _SettingsItem(
+                              icon: Icons.person_outline_rounded,
+                              title: user?.fullname ?? 'Full Name',
+                              subtitle: 'Full Name',
+                              onTap: () {},
                             ),
-                            child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF041f62), size: 18),
-                          ),
-                          title: Text(
-                            user?.referral?.code ?? '---',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B), letterSpacing: 2),
-                          ),
-                          subtitle: const Text('Your Referral Code', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 20, color: Color(0xFF041f62)),
-                                onPressed: () {
-                                  if (user?.referral?.code != null) {
-                                    Clipboard.setData(ClipboardData(text: user!.referral!.code));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Referral code copied to clipboard')),
-                                    );
-                                  }
-                                },
+                            const _MinimalDivider(),
+                            _SettingsItem(
+                              icon: Icons.alternate_email_rounded,
+                              title: user?.email ?? 'Email Address',
+                              subtitle: 'Email',
+                              onTap: () {},
+                            ),
+                          ]),
+                          const SizedBox(height: 32),
+                          _buildSectionLabel('REFERRAL PROGRAM'),
+                          const SizedBox(height: 12),
+                          _buildMinimalContainer([
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                                ),
+                                child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF041f62), size: 18),
                               ),
-                            ],
-                          ),
-                        ),
-                        const _MinimalDivider(),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildReferralStat('Total Referrals', '${user?.referral?.totalReferrals ?? 0}'),
-                              Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
-                              _buildReferralStat('Total Earned', '₦${user?.referral?.totalEarned ?? 0}'),
-                            ],
-                          ),
-                        ),
-                      ]),
-                      const SizedBox(height: 32),
-                      _buildSectionLabel('SECURITY'),
-                      const SizedBox(height: 12),
-                      _buildMinimalContainer([
-                        _ToggleTile(
-                          icon: Icons.fingerprint_rounded,
-                          title: 'Biometric Login',
-                          subtitle: 'Fingerprint unlock',
-                          value: authState.loginBioEnabled,
-                          isLoading: authState.isLoginBioLoading,
-                          onChanged: (val) => _toggleBiometrics('login', val),
-                        ),
-                        const _MinimalDivider(),
-                        _ToggleTile(
-                          icon: Icons.shield_outlined,
-                          title: 'Biometric Payments',
-                          subtitle: 'Transaction authorization',
-                          value: authState.transBioEnabled,
-                          isLoading: authState.isTransBioLoading,
-                          onChanged: (val) => _toggleBiometrics('transaction', val),
-                        ),
-                        const _MinimalDivider(),
-                        _SettingsItem(
-                          icon: Icons.lock_outline_rounded,
-                          title: 'Change Transaction PIN',
-                          onTap: _showChangePinDialog,
-                        ),
-                        const _MinimalDivider(),
-                        _SettingsItem(
-                          icon: Icons.password_rounded,
-                          title: 'Change Password',
-                          onTap: _showChangePasswordDialog,
-                        ),
-                      ]),
-                      const SizedBox(height: 32),
-                      _buildSectionLabel('SYSTEM'),
-                      const SizedBox(height: 12),
-                      _buildMinimalContainer([
-                        _SettingsItem(
-                          icon: Icons.logout_rounded,
-                          title: 'Logout',
-                          titleColor: Colors.orange[800],
-                          onTap: _showLogoutConfirmation,
-                        ),
-                        const _MinimalDivider(),
-                        _SettingsItem(
-                          icon: Icons.delete_outline_rounded,
-                          title: 'Delete Account',
-                          titleColor: Colors.red[700],
-                          onTap: _confirmDeleteAccount,
-                        ),
-                      ]),
-                      const SizedBox(height: 60),
-                    ],
-                  ),
+                              title: Text(
+                                user?.referral?.code ?? '---',
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B), letterSpacing: 2),
+                              ),
+                              subtitle: const Text('Your Referral Code', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded, size: 20, color: Color(0xFF041f62)),
+                                    onPressed: () {
+                                      if (user?.referral?.code != null) {
+                                        Clipboard.setData(ClipboardData(text: user!.referral!.code));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Referral code copied to clipboard')),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const _MinimalDivider(),
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildReferralStat('Total Referrals', '${user?.referral?.totalReferrals ?? 0}'),
+                                  Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
+                                  _buildReferralStat('Total Earned', '₦${user?.referral?.totalEarned ?? 0}'),
+                                ],
+                              ),
+                            ),
+                          ]),
+                          const SizedBox(height: 32),
+                          _buildSectionLabel('SECURITY'),
+                          const SizedBox(height: 12),
+                          _buildMinimalContainer([
+                            _ToggleTile(
+                              icon: Icons.fingerprint_rounded,
+                              title: 'Biometric Login',
+                              subtitle: 'Fingerprint unlock',
+                              value: authState.loginBioEnabled,
+                              isLoading: authState.isLoginBioLoading,
+                              onChanged: (val) => _toggleBiometrics('login', val),
+                            ),
+                            const _MinimalDivider(),
+                            _ToggleTile(
+                              icon: Icons.shield_outlined,
+                              title: 'Biometric Payments',
+                              subtitle: 'Transaction authorization',
+                              value: authState.transBioEnabled,
+                              isLoading: authState.isTransBioLoading,
+                              onChanged: (val) => _toggleBiometrics('transaction', val),
+                            ),
+                            const _MinimalDivider(),
+                            _SettingsItem(
+                              icon: Icons.lock_outline_rounded,
+                              title: 'Change Transaction PIN',
+                              onTap: _showChangePinDialog,
+                            ),
+                            const _MinimalDivider(),
+                            _SettingsItem(
+                              icon: Icons.password_rounded,
+                              title: 'Change Password',
+                              onTap: _showChangePasswordDialog,
+                            ),
+                          ]),
+                          const SizedBox(height: 32),
+                          _buildSectionLabel('SYSTEM'),
+                          const SizedBox(height: 12),
+                          _buildMinimalContainer([
+                            _SettingsItem(
+                              icon: Icons.logout_rounded,
+                              title: 'Logout',
+                              titleColor: Colors.orange[800],
+                              onTap: _showLogoutConfirmation,
+                            ),
+                            const _MinimalDivider(),
+                            _SettingsItem(
+                              icon: Icons.delete_outline_rounded,
+                              title: 'Delete Account',
+                              titleColor: Colors.red[700],
+                              onTap: _confirmDeleteAccount,
+                            ),
+                          ]),
+                          const SizedBox(height: 60),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (_isUploading) const CustomLoader(),
+        ],
       ),
     );
   }
