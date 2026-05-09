@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,50 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  
+  Timer? _timer;
+  int _secondsRemaining = 60;
+  bool _canResend = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _otpController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _secondsRemaining = 60;
+    _canResend = false;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _canResend = true;
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  void _handleResend() {
+    if (!_canResend) return;
+    ref.read(authProvider.notifier).forgotPassword(widget.email);
+    _startTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('OTP resent successfully'), backgroundColor: Color(0xFF011B60)),
+    );
+  }
 
   Future<void> _handleResetPassword() async {
     if (!_formKey.currentState!.validate()) return;
@@ -92,6 +137,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    const Row(
+                      children: [
+                        Icon(Icons.timer_outlined, size: 16, color: Color(0xFF64748B)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Code expires in 10 minutes',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 40),
                     
                     _buildInputField(
@@ -101,7 +157,34 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       keyboardType: TextInputType.number,
                       validator: (v) => v!.length != 6 ? 'Enter 6-digit OTP' : null,
                     ),
-                    const SizedBox(height: 20),
+                    
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!_canResend)
+                            Text(
+                              'Resend in ${_secondsRemaining}s  ',
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                            ),
+                          TextButton(
+                            onPressed: _canResend ? _handleResend : null,
+                            child: Text(
+                              'Resend OTP',
+                              style: TextStyle(
+                                color: _canResend ? const Color(0xFF011B60) : const Color(0xFF94A3B8),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 8),
                     
                     _buildInputField(
                       controller: _passwordController,

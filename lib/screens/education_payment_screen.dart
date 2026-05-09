@@ -6,6 +6,10 @@ import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'transaction_success_screen.dart';
 import '../models/user_data.dart';
+import 'package:intl/intl.dart';
+import '../core/validators/app_validators.dart';
+import '../core/utils/keyboard_utils.dart';
+import '../widgets/common/insufficient_balance_indicator.dart';
 
 class EducationPaymentScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> service;
@@ -30,10 +34,23 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
   bool _isChecking = false;
   bool _isProcessing = false;
 
+  double get _selectedAmount {
+    if (_selectedVariationCode == null) return 0;
+    try {
+      final v = _variations.firstWhere((v) => v['variation_code'] == _selectedVariationCode);
+      final baseAmount = double.tryParse(v['variation_amount'].toString()) ?? 0;
+      final qty = int.tryParse(_quantityController.text) ?? 1;
+      return baseAmount * qty;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _fetchVariations();
+    _quantityController.addListener(() => setState(() {}));
   }
 
   @override
@@ -60,9 +77,11 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
   }
 
   Future<void> _verifyProfile() async {
+    KeyboardUtils.hide(context);
+    
     if (_selectedVariationCode == null || _idController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a variation and enter Profile ID')),
+        const SnackBar(content: Text('Please select a variation and enter Profile ID'), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -73,7 +92,7 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
     try {
       final response = await api.post('/education/verify', data: {
         'serviceID': widget.service['id'],
-        'billersCode': _idController.text,
+        'billersCode': _idController.text.trim(),
         'type': _selectedVariationCode,
       });
 
@@ -86,31 +105,44 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
       } else {
         setState(() => _isChecking = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Verification failed')),
+          SnackBar(
+            content: Text(response.data['responseMessage'] ?? 'Verification failed'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       setState(() => _isChecking = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     }
   }
 
   Future<void> _handlePayment() async {
+    KeyboardUtils.hide(context);
+    
     if (!_formKey.currentState!.validate()) return;
     
     // For JAMB, must be validated
     if (widget.service['id'] == 'jamb' && !_isValidated) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify your Profile ID first')),
+        const SnackBar(content: Text('Please verify your Profile ID first'), backgroundColor: Colors.orange),
       );
       return;
     }
 
     if (_selectedVariationCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a variation')),
+        const SnackBar(content: Text('Please select a variation'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final authState = ref.read(authProvider);
+    if ((authState.wallet?.balance ?? 0) < _selectedAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Insufficient balance'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -136,8 +168,8 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
         'serviceID': widget.service['id'],
         'variation_code': _selectedVariationCode,
         'amount': selectedVariation['variation_amount'],
-        'phone': _phoneController.text,
-        'billersCode': widget.service['id'] == 'jamb' ? _idController.text : null,
+        'phone': _phoneController.text.trim(),
+        'billersCode': widget.service['id'] == 'jamb' ? _idController.text.trim() : null,
         'quantity': int.tryParse(_quantityController.text) ?? 1,
         'pin': pin,
       });
@@ -157,16 +189,23 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
           );
         }
       } else {
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Payment failed')),
-        );
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.data['responseMessage'] ?? 'Payment failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -174,158 +213,180 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final isJamb = widget.service['id'] == 'jamb';
+    final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(widget.service['name'], style: const TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
+    return KeyboardDismissOnTap(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: Text(widget.service['name'], style: const TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Wallet Balance Card
-                  _buildBalanceCard(authState),
-                  const SizedBox(height: 32),
-                  
-                  const Text('Select Package', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  _buildVariationDropdown(),
-                  
-                  if (isJamb) ...[
-                    const SizedBox(height: 24),
-                    const Text('Profile ID', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceCard(authState, currencyFormat),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _idController,
-                            keyboardType: TextInputType.number,
-                            onChanged: (val) => setState(() => _isValidated = false),
-                            decoration: InputDecoration(
-                              hintText: 'Enter JAMB Profile ID',
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 100,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _isChecking ? null : _verifyProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 0,
-                            ),
-                            child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ],
+                    
+                    InsufficientBalanceIndicator(
+                      balance: authState.wallet?.balance ?? 0,
+                      amount: _selectedAmount,
                     ),
-                    if (_isValidated && _customerName != null)
-                      Container(
-                        margin: const EdgeInsets.only(top: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-                            const SizedBox(width: 8),
-                            Text(_customerName!, style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13)),
-                          ],
-                        ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    _buildSectionHeader('Select Package'),
+                    const SizedBox(height: 12),
+                    _buildVariationDropdown(),
+                    
+                    if (isJamb) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('Profile ID'),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _idController,
+                              keyboardType: TextInputType.number,
+                              onChanged: (val) => setState(() => _isValidated = false),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              decoration: _inputDecoration('Enter JAMB Profile ID'),
+                              validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 100,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _isChecking ? null : _verifyProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                                disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                              ),
+                              child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-
-                  const SizedBox(height: 24),
-                  const Text('Recipient Phone', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      hintText: 'Enter phone number',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                    ),
-                    validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                  ),
-
-                  if (!isJamb) ...[
+                      if (_isValidated && _customerName != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(_customerName!, style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13))),
+                            ],
+                          ),
+                        ),
+                    ],
+  
                     const SizedBox(height: 24),
-                    const Text('Quantity', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    _buildSectionHeader('Recipient Phone'),
                     const SizedBox(height: 12),
                     TextFormField(
-                      controller: _quantityController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: 'Number of PINs',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      decoration: _inputDecoration('Enter phone number'),
+                      validator: AppValidators.validatePhone,
+                    ),
+  
+                    if (!isJamb) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('Quantity'),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _quantityController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        decoration: _inputDecoration('Number of PINs'),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Required';
+                          final q = int.tryParse(val);
+                          if (q == null || q < 1) return 'Min 1';
+                          if (q > 10) return 'Max 10';
+                          return null;
+                        },
+                      ),
+                    ],
+  
+                    const SizedBox(height: 40),
+                    
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: (_isProcessing || _isChecking || _isLoadingVariations) ? null : _handlePayment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                        ),
+                        child: Text(
+                          _isProcessing ? 'Processing...' : 'Purchase ${widget.service['id'].toUpperCase()}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 20),
                   ],
-
-                  const SizedBox(height: 40),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: (_isProcessing) ? null : _handlePayment,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Purchase ${widget.service['id'].toUpperCase()}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          if (_isLoadingVariations || _isProcessing || _isChecking) 
-            Positioned.fill(
-              child: CustomLoader(message: _isLoadingVariations ? 'Loading variations...' : (_isChecking ? 'Verifying...' : 'Processing Payment...')),
-            ),
-        ],
+            if (_isLoadingVariations || _isProcessing || _isChecking) 
+              CustomLoader(message: _isLoadingVariations ? 'Loading variations...' : (_isChecking ? 'Verifying...' : 'Processing...')),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBalanceCard(AuthState authState) {
+  Widget _buildSectionHeader(String title) {
+    return Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B)));
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent)),
+    );
+  }
+
+  Widget _buildBalanceCard(AuthState authState, NumberFormat format) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,7 +394,7 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
           const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14)),
           const SizedBox(height: 8),
           Text(
-            '₦ ${authState.wallet?.balance.toStringAsFixed(2) ?? "0.00"}',
+            format.format(authState.wallet?.balance ?? 0),
             style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
           ),
         ],
@@ -343,7 +404,7 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
 
   Widget _buildVariationDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -352,12 +413,13 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedVariationCode,
-          hint: const Text('Select Option'),
+          hint: const Text('Select Option', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
           isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
           items: _variations.map((v) {
             return DropdownMenuItem<String>(
               value: v['variation_code'],
-              child: Text("${v['name']} - ₦${v['variation_amount']}"),
+              child: Text("${v['name']} - ₦${v['variation_amount']}", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             );
           }).toList(),
           onChanged: (val) => setState(() {

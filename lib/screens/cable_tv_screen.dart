@@ -6,6 +6,8 @@ import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'transaction_success_screen.dart';
 import '../models/user_data.dart';
+import '../core/utils/keyboard_utils.dart';
+import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
 
 class CableTVScreen extends ConsumerStatefulWidget {
@@ -20,14 +22,6 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
   final _smartcardController = TextEditingController();
   
   String? _selectedProvider = 'dstv';
-  
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchPlans('dstv');
-    });
-  }
   Map<String, dynamic>? _selectedPlan;
   List<dynamic> _plans = [];
   bool _isLoadingPlans = false;
@@ -35,6 +29,15 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
   String? _accountName;
   bool _isVerifying = false;
   bool _isProcessing = false;
+  double _currentPrice = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchPlans('dstv');
+    });
+  }
 
   final List<Map<String, String>> _providers = [
     {'name': 'DSTV', 'id': 'dstv'},
@@ -54,6 +57,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
       _isLoadingPlans = true;
       _plans = [];
       _selectedPlan = null;
+      _currentPrice = 0;
     });
 
     try {
@@ -66,19 +70,16 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch plans: $e')),
-      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to fetch plans: $e')));
     } finally {
-      setState(() => _isLoadingPlans = false);
+      if (mounted) setState(() => _isLoadingPlans = false);
     }
   }
 
   Future<void> _verifySmartcard() async {
+    KeyboardUtils.hide(context);
     if (_selectedProvider == null || _smartcardController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select provider and enter smartcard number')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select provider and enter smartcard number'), backgroundColor: Colors.orange));
       return;
     }
 
@@ -98,25 +99,26 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
           _accountName = data['name'] ?? data['customer_name'] ?? 'Account Verified';
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Validation failed')),
-        );
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.data['responseMessage'] ?? 'Validation failed'), backgroundColor: Colors.red));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Verification error: $e')),
-      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Verification error: $e'), backgroundColor: Colors.red));
     } finally {
-      setState(() => _isVerifying = false);
+      if (mounted) setState(() => _isVerifying = false);
     }
   }
 
   Future<void> _handlePayment() async {
+    KeyboardUtils.hide(context);
     if (_selectedPlan == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a package')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a package'), backgroundColor: Colors.orange));
       return;
     }
-    if (!_formKey.currentState!.validate() || !_isValidated) return;
+    if (!_formKey.currentState!.validate()) return;
+    if (!_isValidated) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please verify smartcard first'), backgroundColor: Colors.orange));
+       return;
+    }
 
     final pinResult = await Navigator.push(
       context,
@@ -124,7 +126,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
     );
 
     if (pinResult != null && pinResult is String) {
-      _processTransaction(pinResult);
+      await _processTransaction(pinResult);
     }
   }
 
@@ -161,7 +163,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
         if (mounted) {
           setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed')),
+            SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed'), backgroundColor: Colors.red),
           );
         }
       }
@@ -169,7 +171,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
       if (mounted) {
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
     }
@@ -179,228 +181,230 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
+    final balance = authState.wallet?.balance ?? 0;
+    final isBalanceLow = _currentPrice > balance;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Cable TV', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
+    return KeyboardDismissOnTap(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text('Cable TV', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Balance Card
-                  _buildBalanceCard(authState, currencyFormat),
-                  const SizedBox(height: 32),
-                  
-                  const Text('Select Provider', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  _buildProviderDropdown(),
-                  
-                  const SizedBox(height: 24),
-                  if (_selectedProvider != null) ...[
-                    const Text(
-                      'Choose Package',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 12),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceCard(balance, currencyFormat),
+                    const SizedBox(height: 32),
                     
-                    if (_isLoadingPlans)
-                      const Center(child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(color: Color(0xFF011B60)),
-                      ))
-                    else if (_plans.isEmpty)
-                      const Center(child: Text('No packages available.'))
-                    else
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.3,
+                    const Text('Select Provider', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 12),
+                    _buildProviderDropdown(),
+                    
+                    const SizedBox(height: 24),
+                    const Text('Smartcard / IUC Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _smartcardController,
+                            keyboardType: TextInputType.number,
+                            onChanged: (val) => setState(() => _isValidated = false),
+                            validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                            decoration: InputDecoration(
+                              hintText: 'Enter IUC or Smartcard',
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1)),
+                            ),
+                          ),
                         ),
-                        itemCount: _plans.length,
-                        itemBuilder: (context, index) {
-                          final plan = _plans[index];
-                          final isSelected = _selectedPlan == plan;
-                          
-                          return GestureDetector(
-                            onTap: () => setState(() {
-                              _selectedPlan = plan;
-                              _isValidated = false;
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF011B60) : Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
-                                  width: 2,
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _isVerifying ? null : _verifySmartcard,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 0,
+                            ),
+                            child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                          ),
+                        ),
+                      ],
+                    ),
+  
+                    if (_isValidated && _accountName != null)
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2))),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(_accountName!, style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w900, fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+  
+                    const SizedBox(height: 32),
+  
+                    if (_selectedProvider != null) ...[
+                      const Text('Choose Package', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                      const SizedBox(height: 12),
+                      
+                      if (_isLoadingPlans)
+                        const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator(color: AppColors.primary)))
+                      else if (_plans.isEmpty)
+                        const Center(child: Text('No packages available.'))
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.3,
+                          ),
+                          itemCount: _plans.length,
+                          itemBuilder: (context, index) {
+                            final plan = _plans[index];
+                            final isSelected = _selectedPlan == plan;
+                            final price = double.tryParse(plan['variation_amount']?.toString() ?? plan['amount']?.toString() ?? '0') ?? 0;
+                            final planIsBalanceLow = price > balance;
+                            
+                            return GestureDetector(
+                              onTap: () => setState(() {
+                                _selectedPlan = plan;
+                                _currentPrice = price;
+                                // We don't reset _isValidated here unless provider changed
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppColors.primary : Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0), width: 2),
+                                  boxShadow: isSelected ? [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))] : [],
                                 ),
-                                boxShadow: isSelected ? [
-                                  BoxShadow(color: const Color(0xFF011B60).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
-                                ] : [],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    plan['name'].toString(),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      "₦${plan['variation_amount']}",
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      plan['name'].toString(),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: isSelected ? Colors.white : const Color(0xFF011B60),
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 12,
+                                        color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13,
+                                        height: 1.2,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: planIsBalanceLow 
+                                            ? Colors.red.withOpacity(isSelected ? 0.3 : 0.1)
+                                            : (isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9)),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        "₦${plan['variation_amount']}",
+                                        style: TextStyle(
+                                          color: planIsBalanceLow 
+                                              ? (isSelected ? Colors.white : Colors.red)
+                                              : (isSelected ? Colors.white : AppColors.primary),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                  
-                  const SizedBox(height: 24),
-                  const Text('Smartcard / IUC Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _smartcardController,
-                          keyboardType: TextInputType.number,
-                          onChanged: (val) => setState(() => _isValidated = false),
-                          decoration: InputDecoration(
-                            hintText: 'Enter IUC or Smartcard number',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                          ),
+                            );
+                          },
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 100,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _isVerifying ? null : _verifySmartcard,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 0,
-                          ),
-                          child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
                     ],
-                  ),
-                  
-                  if (_isValidated && _accountName != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(_accountName!, style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13)),
-                          ),
-                        ],
+                    
+                    InsufficientBalanceIndicator(amount: _currentPrice, balance: balance),
+                    const SizedBox(height: 40),
+                    
+                    SizedBox(
+                      width: double.infinity,
+                      height: 64,
+                      child: ElevatedButton(
+                        onPressed: (_isValidated && !_isProcessing && !isBalanceLow && _selectedPlan != null) ? _handlePayment : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          elevation: 0,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                        ),
+                        child: Text(
+                          isBalanceLow ? 'Insufficient Balance' : (_isValidated ? 'Pay ${currencyFormat.format(_currentPrice)}' : 'Verify Account First'),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
                       ),
                     ),
-
-                  const SizedBox(height: 40),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: (_isValidated && !_isProcessing) ? _handlePayment : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
-                      ),
-                      child: Text(
-                        _isValidated 
-                            ? 'Pay ${_selectedPlan != null ? currencyFormat.format(double.tryParse(_selectedPlan!['variation_amount']?.toString() ?? _selectedPlan!['amount']?.toString() ?? '0') ?? 0) : ''}' 
-                            : 'Pay Bill',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),
-          if (authState.isLoading || _isProcessing || _isVerifying) 
-            Positioned.fill(
-              child: CustomLoader(message: _isVerifying ? 'Verifying Smartcard...' : 'Processing Transaction...'),
-            ),
-        ],
+            if (authState.isLoading || _isProcessing || _isVerifying) 
+              CustomLoader(message: _isVerifying ? 'Verifying Smartcard...' : 'Processing Transaction...'),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBalanceCard(AuthState authState, NumberFormat format) {
+  Widget _buildBalanceCard(double balance, NumberFormat format) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
-        ],
+        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           Text(
-            format.format(authState.wallet?.balance ?? 0),
+            format.format(balance),
             style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
           ),
         ],
@@ -414,19 +418,15 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedProvider,
-          hint: const Text('Select Cable Provider'),
+          hint: const Text('Select Provider', style: TextStyle(color: Color(0xFF94A3B8))),
           isExpanded: true,
-          items: _providers.map((p) {
-            return DropdownMenuItem<String>(
-              value: p['id'],
-              child: Text(p['name']!),
-            );
-          }).toList(),
+          style: const TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
+          items: _providers.map((p) => DropdownMenuItem<String>(value: p['id'], child: Text(p['name']!))).toList(),
           onChanged: (val) {
             if (val != null) {
               setState(() {
@@ -438,37 +438,6 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
           },
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-    Function(String)? onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          onChanged: onChanged,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
-          ),
-          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-        ),
-      ],
     );
   }
 }

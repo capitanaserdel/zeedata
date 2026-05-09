@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'transaction_success_screen.dart';
 import '../models/user_data.dart';
+import '../core/validators/app_validators.dart';
+import '../core/utils/keyboard_utils.dart';
+import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
 
 class DataScreen extends ConsumerStatefulWidget {
@@ -18,10 +20,11 @@ class DataScreen extends ConsumerStatefulWidget {
 class _DataScreenState extends ConsumerState<DataScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
-  final _pinController = TextEditingController();
   String? _selectedNetwork = 'MTN';
-  String? _selectedPlan;
   bool _isProcessing = false;
+  Map<String, dynamic>? _selectedPlanData;
+  List<dynamic> _availablePlans = [];
+  bool _isLoadingPlans = false;
 
   @override
   void initState() {
@@ -31,16 +34,18 @@ class _DataScreenState extends ConsumerState<DataScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
   final List<Map<String, dynamic>> _networks = [
     {'name': 'MTN', 'id': 'mtn-data', 'color': const Color(0xFFFFCC00), 'textColor': Colors.black},
     {'name': 'Airtel', 'id': 'airtel-data', 'color': const Color(0xFFFF0000), 'textColor': Colors.white},
     {'name': 'Glo', 'id': 'glo-data', 'color': const Color(0xFF00FF00), 'textColor': Colors.black},
     {'name': '9mobile', 'id': '9mobile-data', 'color': const Color(0xFF006600), 'textColor': Colors.white},
   ];
-
-  Map<String, dynamic>? _selectedPlanData;
-  List<dynamic> _availablePlans = [];
-  bool _isLoadingPlans = false;
 
   Future<void> _fetchPlans(String serviceId) async {
     setState(() {
@@ -60,7 +65,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load plans: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load plans: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isLoadingPlans = false);
@@ -71,248 +76,273 @@ class _DataScreenState extends ConsumerState<DataScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final wallet = authState.wallet;
+    final balance = wallet?.balance ?? 0;
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
     final size = MediaQuery.of(context).size;
     final isTablet = size.width > 600;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Buy Data', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+    final selectedPrice = double.tryParse(_selectedPlanData?['variation_amount']?.toString() ?? '0') ?? 0;
+    final isBalanceLow = selectedPrice > balance;
+
+    return KeyboardDismissOnTap(
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
+        appBar: AppBar(
+          title: const Text('Buy Data', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? size.width * 0.2 : 24.0,
-              vertical: 10,
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Balance Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF011B60),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF011B60).withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Wallet Balance',
-                          style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          currencyFormat.format(wallet?.balance ?? 0),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? size.width * 0.2 : 24.0,
+                vertical: 10,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Balance Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF011B60),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF011B60).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  const Text(
-                    'Select Network',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Network Selection Grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1,
-                    ),
-                    itemCount: _networks.length,
-                    itemBuilder: (context, index) {
-                      final network = _networks[index];
-                      final isSelected = _selectedNetwork == network['name'];
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedNetwork = network['name']);
-                          _fetchPlans(network['id']);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            color: isSelected ? network['color'] : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected ? network['color'] : const Color(0xFFF1F5F9),
-                              width: 2,
-                            ),
-                            boxShadow: isSelected ? [
-                              BoxShadow(color: network['color'].withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
-                            ] : [],
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Wallet Balance',
+                            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
                           ),
-                          child: Center(
-                            child: Text(
-                              network['name'],
-                              style: TextStyle(
-                                color: isSelected ? network['textColor'] : const Color(0xFF64748B),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 12,
-                              ),
+                          const SizedBox(height: 8),
+                          Text(
+                            currencyFormat.format(balance),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1,
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  if (_selectedNetwork != null) ...[
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
                     const Text(
-                      'Choose Data Plan',
+                      'Select Network',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
                     ),
                     const SizedBox(height: 16),
                     
-                    if (_isLoadingPlans)
-                      const Center(child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(color: Color(0xFF011B60)),
-                      ))
-                    else if (_availablePlans.isEmpty)
-                      const Center(child: Text('No plans available for this network.'))
-                    else
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.3,
-                        ),
-                        itemCount: _availablePlans.length,
-                        itemBuilder: (context, index) {
-                          final plan = _availablePlans[index];
-                          final isSelected = _selectedPlanData == plan;
-                          
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedPlanData = plan),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF011B60) : Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
-                                  width: 2,
-                                ),
-                                boxShadow: isSelected ? [
-                                  BoxShadow(color: const Color(0xFF011B60).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
-                                ] : [],
+                    // Network Selection Grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: _networks.length,
+                      itemBuilder: (context, index) {
+                        final network = _networks[index];
+                        final isSelected = _selectedNetwork == network['name'];
+                        return GestureDetector(
+                          onTap: () {
+                            KeyboardUtils.hide(context);
+                            setState(() => _selectedNetwork = network['name']);
+                            _fetchPlans(network['id']);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              color: isSelected ? network['color'] : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected ? network['color'] : const Color(0xFFF1F5F9),
+                                width: 2,
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    plan['name'].toString(),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      "₦${plan['variation_amount']}",
-                                      style: TextStyle(
-                                        color: isSelected ? Colors.white : const Color(0xFF011B60),
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              boxShadow: isSelected ? [
+                                BoxShadow(color: network['color'].withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                              ] : [],
+                            ),
+                            child: Center(
+                              child: Text(
+                                network['name'],
+                                style: TextStyle(
+                                  color: isSelected ? network['textColor'] : const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    _buildInputField(
+                      controller: _phoneController,
+                      label: 'Phone Number',
+                      icon: Icons.phone_android_rounded,
+                      keyboardType: TextInputType.phone,
+                      validator: (v) => (v == null || v.isEmpty) ? 'Enter recipient number' : (v.length < 11 ? 'Invalid phone number' : null),
+                    ),
+    
+                    const SizedBox(height: 24),
+                    if (_selectedNetwork != null) ...[
+                      const Text(
+                        'Choose Data Plan',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
                       ),
+                      const SizedBox(height: 16),
+                      
+                      if (_isLoadingPlans)
+                        const Center(child: Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(color: Color(0xFF011B60)),
+                        ))
+                      else if (_availablePlans.isEmpty)
+                        const Center(child: Text('No plans available for this network.'))
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.3,
+                          ),
+                          itemCount: _availablePlans.length,
+                          itemBuilder: (context, index) {
+                            final plan = _availablePlans[index];
+                            final isSelected = _selectedPlanData == plan;
+                            final price = double.tryParse(plan['variation_amount']?.toString() ?? '0') ?? 0;
+                            final planIsBalanceLow = price > balance;
+                            
+                            return GestureDetector(
+                              onTap: () {
+                                KeyboardUtils.hide(context);
+                                setState(() => _selectedPlanData = plan);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF011B60) : Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
+                                    width: 2,
+                                  ),
+                                  boxShadow: isSelected ? [
+                                    BoxShadow(color: const Color(0xFF011B60).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
+                                  ] : [],
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      plan['name'].toString(),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: planIsBalanceLow 
+                                            ? Colors.red.withOpacity(isSelected ? 0.3 : 0.1)
+                                            : (isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9)),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        "₦${plan['variation_amount']}",
+                                        style: TextStyle(
+                                          color: planIsBalanceLow 
+                                              ? (isSelected ? Colors.white : Colors.red)
+                                              : (isSelected ? Colors.white : const Color(0xFF011B60)),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                    
+                    InsufficientBalanceIndicator(
+                      amount: selectedPrice,
+                      balance: balance,
+                    ),
+                    
+                    const SizedBox(height: 40),
+                    
+                    ElevatedButton(
+                      onPressed: (authState.isLoading || _isProcessing || isBalanceLow || _selectedPlanData == null) ? null : _handlePurchase,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF011B60),
+                        disabledBackgroundColor: const Color(0xFF011B60).withOpacity(0.5),
+                        minimumSize: const Size(double.infinity, 64),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        isBalanceLow 
+                          ? 'Insufficient Balance' 
+                          : (_selectedPlanData != null 
+                              ? 'Pay ${currencyFormat.format(selectedPrice)}'
+                              : 'Purchase Data'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
                   ],
-                  
-                  const SizedBox(height: 24),
-                  
-                  _buildInputField(
-                    controller: _phoneController,
-                    label: 'Phone Number',
-                    icon: Icons.phone_android_rounded,
-                    keyboardType: TextInputType.phone,
-                    validator: (v) => v!.isEmpty ? 'Enter recipient number' : null,
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  ElevatedButton(
-                    onPressed: (authState.isLoading || _isProcessing) ? null : _handlePurchase,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF011B60),
-                      minimumSize: const Size(double.infinity, 64),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      _selectedPlanData != null 
-                        ? 'Pay ${currencyFormat.format(double.tryParse(_selectedPlanData!['variation_amount']?.toString() ?? '0') ?? 0)}'
-                        : 'Purchase Data',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                ],
+                ),
               ),
             ),
           ),
-          
-          if (authState.isLoading || _isProcessing) const CustomLoader(message: 'Processing Transaction...'),
-        ],
+            
+            if (authState.isLoading || _isProcessing) const CustomLoader(message: 'Processing Transaction...'),
+          ],
+        ),
       ),
     );
   }
@@ -360,7 +390,6 @@ class _DataScreenState extends ConsumerState<DataScreen> {
 
   Future<void> _processTransaction(String pin) async {
     setState(() => _isProcessing = true);
-    print("🚀 Sending transaction with PIN: $pin");
 
     final api = ref.read(apiServiceProvider);
     try {
@@ -374,9 +403,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
 
       if (response.data['responseSuccessful']) {
         if (mounted) {
-          // Save the verified PIN for future biometric use
           await ref.read(authProvider.notifier).saveStoredPin(pin);
-
           final transaction = Transaction.fromJson(response.data['responseBody']);
           await ref.read(authProvider.notifier).refreshProfile();
 
@@ -394,7 +421,10 @@ class _DataScreenState extends ConsumerState<DataScreen> {
         if (mounted) {
           setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.data['responseMessage'] ?? 'Transaction failed')),
+            SnackBar(
+              content: Text(response.data['responseMessage'] ?? 'Transaction failed'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -402,31 +432,31 @@ class _DataScreenState extends ConsumerState<DataScreen> {
       if (mounted) {
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
     }
   }
 
   Future<void> _handlePurchase() async {
+    KeyboardUtils.hide(context);
+    
     if (_selectedNetwork == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a network provider')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a network provider'), backgroundColor: Colors.orange));
       return;
     }
 
     if (_selectedPlanData == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a data plan')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a data plan'), backgroundColor: Colors.orange));
       return;
     }
 
     if (_formKey.currentState!.validate()) {
-      // 1. Show PIN Screen
       final pinResult = await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TransactionPinScreen()),
       );
 
-      // 2. If we got a valid PIN (either from manual entry or biometric retrieval)
       if (pinResult != null && pinResult is String) {
         await _processTransaction(pinResult);
       }

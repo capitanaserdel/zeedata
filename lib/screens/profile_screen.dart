@@ -412,7 +412,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ),
-          if (_isUploading) const CustomLoader(),
+          if (_isUploading || authState.isLoading) const CustomLoader(),
         ],
       ),
     );

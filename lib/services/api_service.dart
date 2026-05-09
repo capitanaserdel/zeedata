@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/constants.dart';
 
@@ -62,14 +63,33 @@ class ApiService {
   }
 
   String _handleError(DioException e) {
+    if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+      return 'Connection timed out. Please check your internet.';
+    }
+    if (e.type == DioExceptionType.connectionError) {
+      return 'No internet connection. Please check your data.';
+    }
+
     if (e.response != null) {
       final data = e.response?.data;
-      if (data is Map && data.containsKey('responseMessage')) {
-        return data['responseMessage'];
+      if (data is Map) {
+        if (data.containsKey('responseMessage')) {
+          return data['responseMessage'];
+        }
+        if (data.containsKey('message')) {
+          return data['message'];
+        }
+        if (data.containsKey('errors')) {
+          // Flatten Laravel validation errors if present
+          final errors = data['errors'];
+          if (errors is Map) {
+            return errors.values.first.first.toString();
+          }
+        }
       }
-      if (data is Map && data.containsKey('message')) {
-        return data['message'];
-      }
+      if (e.response?.statusCode == 401) return 'Session expired. Please login again.';
+      if (e.response?.statusCode == 403) return 'Access denied.';
+      if ((e.response?.statusCode ?? 0) >= 500) return 'Server error. Please try again later.';
     }
     return 'An unexpected error occurred. Please try again.';
   }

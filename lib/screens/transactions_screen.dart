@@ -118,16 +118,51 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             DateFormat('MMM dd, yyyy • hh:mm a').format(tx.createdAt),
             style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
           ),
-          trailing: Text(
-            '${tx.isCredit ? "+" : "-"}${format.format(tx.amount)}',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              color: tx.isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-              fontSize: 16,
-            ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${tx.isCredit ? "+" : "-"}${format.format(tx.amount)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: tx.isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(tx.status).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  tx.status.toUpperCase(),
+                  style: TextStyle(
+                    color: _getStatusColor(tx.status),
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'SUCCESS':
+        return const Color(0xFF10B981);
+      case 'PENDING':
+        return Colors.orange;
+      case 'FAILED':
+        return const Color(0xFFEF4444);
+      default:
+        return Colors.grey;
+    }
   }
 }

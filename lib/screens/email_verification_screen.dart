@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +25,47 @@ class EmailVerificationScreen extends ConsumerStatefulWidget {
 
 class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScreen> {
   final _otpController = TextEditingController();
+  Timer? _timer;
+  int _secondsRemaining = 60;
+  bool _canResend = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _secondsRemaining = 60;
+    _canResend = false;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _canResend = true;
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  void _handleResend() {
+    if (!_canResend) return;
+    ref.read(authProvider.notifier).sendRegistrationOtp(widget.email);
+    _startTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('OTP resent successfully'), backgroundColor: Color(0xFF011B60)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +126,17 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Row(
+                    children: [
+                      Icon(Icons.timer_outlined, size: 16, color: Color(0xFF64748B)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Code expires in 10 minutes',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 40),
                   
@@ -151,15 +204,28 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
                   
                   const SizedBox(height: 32),
                   Center(
-                    child: TextButton(
-                      onPressed: () => ref.read(authProvider.notifier).sendRegistrationOtp(widget.email),
-                      child: const Text(
-                        'Didn\'t receive code? Resend',
-                        style: TextStyle(
-                          color: Color(0xFF011B60),
-                          fontWeight: FontWeight.w700,
+                    child: Column(
+                      children: [
+                        TextButton(
+                          onPressed: _canResend ? _handleResend : null,
+                          child: Text(
+                            'Didn\'t receive code? Resend',
+                            style: TextStyle(
+                              color: _canResend ? const Color(0xFF011B60) : const Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (!_canResend)
+                          Text(
+                            'Resend available in ${_secondsRemaining}s',
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],

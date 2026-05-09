@@ -6,6 +6,8 @@ import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'package:intl/intl.dart';
+import '../core/utils/keyboard_utils.dart';
+import '../widgets/common/insufficient_balance_indicator.dart';
 
 class RechargePinScreen extends ConsumerStatefulWidget {
   const RechargePinScreen({super.key});
@@ -20,7 +22,6 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   
   String? _selectedNetwork;
   int _quantity = 1;
-  bool _isLoadingPlans = false;
   bool _isProcessing = false;
 
   final List<Map<String, dynamic>> _networks = [
@@ -30,6 +31,17 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
     {'name': '9mobile', 'id': '9mobile', 'color': const Color(0xFF006600), 'ussd': '*222*PIN#'},
   ];
 
+  double get _totalAmount {
+    final amount = double.tryParse(_amountController.text) ?? 0;
+    return amount * _quantity;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
@@ -37,8 +49,18 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   }
 
   Future<void> _handlePurchase() async {
-    if (_selectedNetwork == null || _amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select network and enter amount')));
+    KeyboardUtils.hide(context);
+    
+    if (_selectedNetwork == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a network'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) return;
+
+    final authState = ref.read(authProvider);
+    if ((authState.wallet?.balance ?? 0) < _totalAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Insufficient balance'), backgroundColor: Colors.red));
       return;
     }
 
@@ -57,13 +79,12 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
     try {
       final api = ref.read(apiServiceProvider);
       final amount = double.parse(_amountController.text);
-      final totalAmount = amount * _quantity;
       
       final response = await api.post('/recharge-pin/purchase', data: {
         'network': _selectedNetwork,
         'amount': amount,
         'quantity': _quantity,
-        'total_amount': totalAmount,
+        'total_amount': _totalAmount,
         'pin': pin,
       });
 
@@ -78,14 +99,21 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
           _showSuccessDialog(pins, ussd);
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Purchase failed')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.data['responseMessage'] ?? 'Purchase failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      }
     } finally {
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -164,71 +192,82 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
     final authState = ref.watch(authProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Recharge PIN', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
+    return KeyboardDismissOnTap(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text('Recharge PIN', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBalanceCard(authState, currencyFormat),
-                  const SizedBox(height: 32),
-                  
-                  const Text('Select Network', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 16),
-                  _buildNetworkGrid(),
-                  
-                  const SizedBox(height: 24),
-                  _buildTextField(
-                    label: 'Amount (₦)',
-                    controller: _amountController,
-                    hint: 'e.g. 100',
-                    keyboardType: TextInputType.number,
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  const Text('Quantity', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  _buildQuantitySelector(),
-                  
-                  const SizedBox(height: 40),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _handlePurchase,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        _isProcessing ? 'Processing...' : 'Generate PIN(s)',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceCard(authState, currencyFormat),
+                    const SizedBox(height: 12),
+                    
+                    InsufficientBalanceIndicator(
+                      balance: authState.wallet?.balance ?? 0,
+                      amount: _totalAmount,
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    const Text('Select Network', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    const SizedBox(height: 16),
+                    _buildNetworkGrid(),
+                    
+                    const SizedBox(height: 24),
+                    _buildTextField(
+                      label: 'Amount (₦)',
+                      controller: _amountController,
+                      hint: 'e.g. 100',
+                      keyboardType: TextInputType.number,
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    const Text('Quantity', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    const SizedBox(height: 12),
+                    _buildQuantitySelector(),
+                    
+                    const SizedBox(height: 40),
+                    
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: (_isProcessing || authState.isLoading) ? null : _handlePurchase,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                        ),
+                        child: Text(
+                          _isProcessing ? 'Processing...' : 'Generate PIN(s)',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_isProcessing) const CustomLoader(message: 'Processing Transaction...'),
-        ],
+            if (_isProcessing || authState.isLoading) const CustomLoader(message: 'Processing...'),
+          ],
+        ),
       ),
     );
   }
@@ -349,8 +388,14 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent)),
           ),
-          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+          validator: (val) {
+            if (val == null || val.isEmpty) return 'Required';
+            final n = double.tryParse(val);
+            if (n == null || n <= 0) return 'Invalid amount';
+            return null;
+          },
         ),
       ],
     );

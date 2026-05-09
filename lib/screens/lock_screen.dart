@@ -42,15 +42,15 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Future<void> _authenticateBiometric() async {
     if (_isLoading) return;
     
-    // We don't set _isLoading here to allow PIN entry if biometric is slow/cancels
+    setState(() => _isLoading = true);
     final success = await ref.read(authProvider.notifier).unlockWithBiometrics();
     
     if (!mounted) return;
 
-    if (success) {
-      // Navigation is handled by the state change in main.dart (authState.isLocked)
-      // but we can add a small haptic or success indicator here if needed
+    if (!success) {
+      setState(() => _isLoading = false);
     }
+    // If success, state change in main.dart handles navigation
   }
 
   void _onNumberPress(String number) {

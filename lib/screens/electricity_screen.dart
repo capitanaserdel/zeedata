@@ -6,6 +6,9 @@ import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'transaction_success_screen.dart';
 import '../models/user_data.dart';
+import '../core/utils/keyboard_utils.dart';
+import '../widgets/common/insufficient_balance_indicator.dart';
+import 'package:intl/intl.dart';
 
 class ElectricityScreen extends ConsumerStatefulWidget {
   const ElectricityScreen({super.key});
@@ -27,6 +30,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   double? _minAmount;
   bool _isChecking = false;
   bool _isProcessing = false;
+  double _currentAmount = 0;
 
   final List<Map<String, String>> _providers = [
     {'name': 'Ikeja Electric (IKEDC)', 'id': 'ikeja-electric'},
@@ -49,10 +53,9 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   }
 
   Future<void> _verifyMeter() async {
+    KeyboardUtils.hide(context);
     if (_selectedProvider == null || _meterController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select provider and enter meter number')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select provider and enter meter number'), backgroundColor: Colors.orange));
       return;
     }
 
@@ -70,41 +73,31 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
         if (mounted) {
           final body = response.data['responseBody'];
           setState(() {
-            _isChecking = false;
             _isValidated = true;
             _accountName = body['Customer_Name'] ?? body['name'] ?? "Verified Customer";
             _address = body['Address'] ?? body['address'];
-            // Capture minimum amount from API response (do not hardcode a fallback)
-            final minAmtRaw = body['Minimum_Amount'] ?? body['Min_Purchase_Amount']
-                ?? body['MIN_AMOUNT'] ?? body['minimal_amount'] ?? body['min_amount'];
-            
-            final parsedMin = minAmtRaw != null
-                ? double.tryParse(minAmtRaw.toString())
-                : null;
-            // Only set if the API returned a meaningful positive value
+            final minAmtRaw = body['Minimum_Amount'] ?? body['Min_Purchase_Amount'] ?? body['MIN_AMOUNT'] ?? body['min_amount'];
+            final parsedMin = minAmtRaw != null ? double.tryParse(minAmtRaw.toString()) : null;
             _minAmount = (parsedMin != null && parsedMin > 0) ? parsedMin : null;
           });
         }
       } else {
-        if (mounted) {
-          setState(() => _isChecking = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.data['responseMessage'] ?? 'Verification failed')),
-          );
-        }
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.data['responseMessage'] ?? 'Verification failed'), backgroundColor: Colors.red));
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isChecking = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isChecking = false);
     }
   }
 
   Future<void> _handlePayment() async {
-    if (!_formKey.currentState!.validate() || !_isValidated) return;
+    KeyboardUtils.hide(context);
+    if (!_formKey.currentState!.validate()) return;
+    if (!_isValidated) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please verify meter first'), backgroundColor: Colors.orange));
+       return;
+    }
 
     final pinResult = await Navigator.push(
       context,
@@ -112,7 +105,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
     );
 
     if (pinResult != null && pinResult is String) {
-      _processTransaction(pinResult);
+      await _processTransaction(pinResult);
     }
   }
 
@@ -140,26 +133,20 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
             setState(() => _isProcessing = false);
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => TransactionSuccessScreen(transaction: transaction),
-              ),
+              MaterialPageRoute(builder: (context) => TransactionSuccessScreen(transaction: transaction)),
             );
           }
         }
       } else {
         if (mounted) {
           setState(() => _isProcessing = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.data['responseMessage'] ?? 'Payment failed')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.data['responseMessage'] ?? 'Payment failed'), backgroundColor: Colors.red));
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
       }
     }
   }
@@ -167,190 +154,180 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
+    final balance = authState.wallet?.balance ?? 0;
+    final isBalanceLow = _currentAmount > balance;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Electricity Bill', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
+    return KeyboardDismissOnTap(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text('Electricity Bill', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Wallet Balance Card
-                  _buildBalanceCard(authState),
-                  const SizedBox(height: 32),
-                  
-                  const Text('Select Provider', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  _buildProviderDropdown(),
-                  
-                  const SizedBox(height: 24),
-                  const Text('Meter Type', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  _buildMeterTypeToggle(),
-                  
-                  const SizedBox(height: 24),
-                  const Text('Meter Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _meterController,
-                          keyboardType: TextInputType.number,
-                          onChanged: (val) => setState(() => _isValidated = false),
-                          decoration: InputDecoration(
-                            hintText: 'Enter 11 or 13 digit meter number',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceCard(balance, currencyFormat),
+                    const SizedBox(height: 32),
+                    
+                    const Text('Select Provider', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 12),
+                    _buildProviderDropdown(),
+                    
+                    const SizedBox(height: 24),
+                    const Text('Meter Type', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 12),
+                    _buildMeterTypeToggle(),
+                    
+                    const SizedBox(height: 24),
+                    const Text('Meter Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _meterController,
+                            keyboardType: TextInputType.number,
+                            onChanged: (val) => setState(() => _isValidated = false),
+                            validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                            decoration: InputDecoration(
+                              hintText: 'Enter meter number',
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1)),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 100,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _isChecking ? null : _verifyMeter,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 0,
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _isChecking ? null : _verifyMeter,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 0,
+                            ),
+                            child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           ),
-                          child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
-                      ),
-                    ],
-                  ),
-                  
-                  if (_isValidated && _accountName != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _accountName!,
-                                  style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_address != null && _address!.isNotEmpty) ...[
-                            const SizedBox(height: 8),
+                      ],
+                    ),
+                    
+                    if (_isValidated && _accountName != null)
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2))),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.location_on, color: Color(0xFF10B981), size: 18),
+                                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
                                 const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _address!,
-                                    style: const TextStyle(color: Color(0xFF065F46), fontSize: 13, height: 1.4),
-                                  ),
-                                ),
+                                Expanded(child: Text(_accountName!, style: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w900, fontSize: 14))),
                               ],
                             ),
+                            if (_address != null && _address!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.location_on, color: Color(0xFF10B981), size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(_address!, style: const TextStyle(color: Color(0xFF065F46), fontSize: 13, height: 1.4))),
+                                ],
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
+                      ),
+  
+                    const SizedBox(height: 24),
+                    _buildTextField(
+                      label: 'Amount',
+                      controller: _amountController,
+                      hint: '0.00',
+                      keyboardType: TextInputType.number,
+                      prefixText: '₦ ',
+                      onChanged: (v) => setState(() => _currentAmount = double.tryParse(v) ?? 0),
+                    ),
+                    if (_isValidated && _minAmount != null && _minAmount! > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 4),
+                        child: Text('Minimum amount: ₦${_minAmount!.toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w900)),
+                      ),
+                    
+                    InsufficientBalanceIndicator(amount: _currentAmount, balance: balance),
+                    const SizedBox(height: 40),
+                    
+                    SizedBox(
+                      width: double.infinity,
+                      height: 64,
+                      child: ElevatedButton(
+                        onPressed: (_isValidated && !_isProcessing && !isBalanceLow && _currentAmount > 0) ? _handlePayment : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          elevation: 0,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                        ),
+                        child: Text(
+                          isBalanceLow ? 'Insufficient Balance' : (_isValidated ? 'Pay ${currencyFormat.format(_currentAmount)}' : 'Verify Meter First'),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
                       ),
                     ),
-
-                  const SizedBox(height: 24),
-                  _buildTextField(
-                    label: 'Amount',
-                    controller: _amountController,
-                    hint: '₦ 0.00',
-                    keyboardType: TextInputType.number,
-                    prefixText: '₦ ',
-                  ),
-                  if (_isValidated && _minAmount != null && _minAmount! > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, left: 4),
-                      child: Text(
-                        'Minimum amount: ₦${_minAmount!.toStringAsFixed(0)}',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  
-                  const SizedBox(height: 40),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: (_isValidated && !_isProcessing) ? _handlePayment : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
-                      ),
-                      child: const Text(
-                        'Pay Bill',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),
-          if (authState.isLoading || _isProcessing || _isChecking) 
-            Positioned.fill(
-              child: CustomLoader(message: _isChecking ? 'Verifying Meter...' : 'Processing Payment...'),
-            ),
-        ],
+            if (authState.isLoading || _isProcessing || _isChecking) 
+              CustomLoader(message: _isChecking ? 'Verifying Meter...' : 'Processing Payment...'),
+          ],
+        ),
       ),
     );
   }
-
-  Widget _buildBalanceCard(AuthState authState) {
+  
+  Widget _buildBalanceCard(double balance, NumberFormat format) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(24),
-        image: DecorationImage(
-          image: const AssetImage('assets/images/card_bg.png'), // Use consistent pattern if available
-          fit: BoxFit.cover,
-          opacity: 0.1,
-        ),
+        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           Text(
-            '₦ ${authState.wallet?.balance.toStringAsFixed(2) ?? "0.00"}',
+            format.format(balance),
             style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
           ),
         ],
@@ -364,19 +341,15 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedProvider,
-          hint: const Text('Select DisCo Provider'),
+          hint: const Text('Select DisCo Provider', style: TextStyle(color: Color(0xFF94A3B8))),
           isExpanded: true,
-          items: _providers.map((p) {
-            return DropdownMenuItem<String>(
-              value: p['id'],
-              child: Text(p['name']!),
-            );
-          }).toList(),
+          style: const TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
+          items: _providers.map((p) => DropdownMenuItem<String>(value: p['id'], child: Text(p['name']!))).toList(),
           onChanged: (val) => setState(() {
             _selectedProvider = val;
             _isValidated = false;
@@ -405,19 +378,16 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
           _isValidated = false;
         }),
         child: Container(
-          height: 50,
+          height: 54,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0)),
+            color: isSelected ? AppColors.primary : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0), width: 1.5),
           ),
           child: Text(
             type,
-            style: TextStyle(
-              color: isSelected ? AppColors.primary : const Color(0xFF64748B),
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF64748B), fontWeight: FontWeight.w900),
           ),
         ),
       ),
@@ -435,21 +405,25 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
         const SizedBox(height: 12),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           onChanged: onChanged,
+          validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+          style: const TextStyle(fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
             prefixText: prefixText,
             filled: true,
             fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1)),
           ),
-          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
         ),
       ],
     );

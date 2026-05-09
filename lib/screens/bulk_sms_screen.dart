@@ -5,6 +5,9 @@ import '../core/theme/app_colors.dart';
 import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'package:intl/intl.dart';
+import '../core/validators/app_validators.dart';
+import '../core/utils/keyboard_utils.dart';
+import '../widgets/common/insufficient_balance_indicator.dart';
 
 class BulkSMSScreen extends ConsumerStatefulWidget {
   const BulkSMSScreen({super.key});
@@ -24,6 +27,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
   int _recipientCount = 0;
   double _totalCost = 0.0;
   final double _ratePerPage = 5.0;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -67,9 +71,18 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
   }
 
   Future<void> _handleSend() async {
+    KeyboardUtils.hide(context);
+    
     if (!_formKey.currentState!.validate()) return;
+    
     if (_recipientCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one recipient')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one recipient'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    final authState = ref.read(authProvider);
+    if ((authState.wallet?.balance ?? 0) < _totalCost) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Insufficient balance to send SMS'), backgroundColor: Colors.red));
       return;
     }
 
@@ -84,6 +97,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
   }
 
   Future<void> _processTransaction(String pin) async {
+    setState(() => _isProcessing = true);
     try {
       final api = ref.read(apiServiceProvider);
       final response = await api.post('/sms/send', data: {
@@ -100,17 +114,29 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
             const SnackBar(content: Text('Bulk SMS sent successfully!'), backgroundColor: Colors.green),
           );
           await ref.read(authProvider.notifier).refreshProfile();
-          Navigator.pop(context);
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            Navigator.pop(context);
+          }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.data['responseMessage'] ?? 'Failed to send SMS')),
-        );
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.data['responseMessage'] ?? 'Failed to send SMS'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -119,111 +145,123 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
     final authState = ref.watch(authProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Bulk SMS', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
+    return KeyboardDismissOnTap(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text('Bulk SMS', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBalanceCard(authState, currencyFormat),
-                  const SizedBox(height: 32),
-                  
-                  _buildTextField(
-                    label: 'Sender ID',
-                    controller: _senderController,
-                    hint: 'e.g., ZEEDATA',
-                    maxLength: 11,
-                    validator: (v) => v!.isEmpty ? 'Sender ID is required' : (v.length > 11 ? 'Max 11 characters' : null),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  _buildTextField(
-                    label: 'Recipients',
-                    controller: _recipientsController,
-                    hint: 'Enter numbers separated by comma or newline',
-                    maxLines: 4,
-                    keyboardType: TextInputType.multiline,
-                    validator: (v) => v!.isEmpty ? 'At least one recipient is required' : null,
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  _buildTextField(
-                    label: 'Message',
-                    controller: _messageController,
-                    hint: 'Type your message here...',
-                    maxLines: 6,
-                    keyboardType: TextInputType.multiline,
-                    validator: (v) => v!.isEmpty ? 'Message cannot be empty' : null,
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('$_charCount characters | $_pages page(s)', style: TextStyle(fontSize: 12, color: Colors.blueGrey[600], fontWeight: FontWeight.w600)),
-                      Text('₦$_ratePerPage per page', style: TextStyle(fontSize: 12, color: Colors.blueGrey[400])),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Summary Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceCard(authState, currencyFormat),
+                    const SizedBox(height: 12),
+                    
+                    InsufficientBalanceIndicator(
+                      balance: authState.wallet?.balance ?? 0,
+                      amount: _totalCost,
                     ),
-                    child: Column(
+                    
+                    const SizedBox(height: 32),
+                    
+                    _buildTextField(
+                      label: 'Sender ID',
+                      controller: _senderController,
+                      hint: 'e.g., ZEEDATA',
+                      maxLength: 11,
+                      validator: (v) => v!.isEmpty ? 'Sender ID is required' : (v.length > 11 ? 'Max 11 characters' : null),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    _buildTextField(
+                      label: 'Recipients',
+                      controller: _recipientsController,
+                      hint: 'Enter numbers separated by comma or newline',
+                      maxLines: 4,
+                      keyboardType: TextInputType.multiline,
+                      validator: (v) => v!.isEmpty ? 'At least one recipient is required' : null,
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    _buildTextField(
+                      label: 'Message',
+                      controller: _messageController,
+                      hint: 'Type your message here...',
+                      maxLines: 6,
+                      keyboardType: TextInputType.multiline,
+                      validator: (v) => v!.isEmpty ? 'Message cannot be empty' : null,
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildSummaryRow('Total Recipients', '$_recipientCount'),
-                        const Divider(height: 24),
-                        _buildSummaryRow('Total Cost', currencyFormat.format(_totalCost), isTotal: true),
+                        Text('$_charCount characters | $_pages page(s)', style: TextStyle(fontSize: 12, color: Colors.blueGrey[600], fontWeight: FontWeight.w600)),
+                        Text('₦$_ratePerPage per page', style: TextStyle(fontSize: 12, color: Colors.blueGrey[400])),
                       ],
                     ),
-                  ),
-
-                  const SizedBox(height: 40),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: authState.isLoading ? null : _handleSend,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Summary Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: const Text(
-                        'Send Bulk SMS',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      child: Column(
+                        children: [
+                          _buildSummaryRow('Total Recipients', '$_recipientCount'),
+                          const Divider(height: 24),
+                          _buildSummaryRow('Total Cost', currencyFormat.format(_totalCost), isTotal: true),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+  
+                    const SizedBox(height: 40),
+                    
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: (_isProcessing || authState.isLoading) ? null : _handleSend,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                        ),
+                        child: Text(
+                          _isProcessing ? 'Processing...' : 'Send Bulk SMS',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
-          if (authState.isLoading) const CustomLoader(message: 'Processing...'),
-        ],
+            if (_isProcessing || authState.isLoading) const CustomLoader(message: 'Processing...'),
+          ],
+        ),
       ),
     );
   }
@@ -282,6 +320,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent)),
           ),
         ),
       ],

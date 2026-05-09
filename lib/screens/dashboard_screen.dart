@@ -471,14 +471,49 @@ class _TransactionItem extends StatelessWidget {
         ),
         title: Text(transaction.serviceType, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(DateFormat('MMM dd, hh:mm a').format(transaction.createdAt)),
-        trailing: Text(
-          '${transaction.isCredit ? "+" : "-"}₦${transaction.amount}',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: transaction.isCredit ? Colors.green : Colors.red,
-          ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${transaction.isCredit ? "+" : "-"}₦${transaction.amount}',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: transaction.isCredit ? Colors.green : Colors.red,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _getStatusColor(transaction.status).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                transaction.status.toUpperCase(),
+                style: TextStyle(
+                  color: _getStatusColor(transaction.status),
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'SUCCESS':
+        return Colors.green;
+      case 'PENDING':
+        return Colors.orange;
+      case 'FAILED':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }

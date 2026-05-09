@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/notification_provider.dart';
+import '../models/notification_data.dart';
 import '../core/theme/app_colors.dart';
-import '../widgets/custom_loader.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -16,9 +16,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(notificationProvider.notifier).fetchNotifications();
-    });
+    Future.microtask(() => ref.read(notificationProvider.notifier).fetchNotifications());
   }
 
   @override
@@ -28,7 +26,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w900)),
+        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -40,30 +38,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           if (notificationState.unreadCount > 0)
             TextButton(
               onPressed: () => ref.read(notificationProvider.notifier).markAllAsRead(),
-              child: const Text('Mark all as read', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+              child: const Text('Mark all read', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: () => ref.read(notificationProvider.notifier).fetchNotifications(),
-            color: AppColors.primary,
-            child: notificationState.notifications.isEmpty && !notificationState.isLoading
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(notificationProvider.notifier).fetchNotifications(),
+        color: AppColors.primary,
+        child: notificationState.isLoading && notificationState.notifications.isEmpty
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            : notificationState.notifications.isEmpty
                 ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                     itemCount: notificationState.notifications.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final notification = notificationState.notifications[index];
-                      return _buildNotificationTile(notification);
+                      return _NotificationTile(notification: notification);
                     },
                   ),
-          ),
-          if (notificationState.isLoading && notificationState.notifications.isEmpty)
-            const CustomLoader(message: 'Loading alerts...'),
-        ],
       ),
     );
   }
@@ -90,112 +84,129 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ],
     );
   }
+}
 
-  Widget _buildNotificationTile(dynamic notification) {
-    bool isRead = notification.isRead;
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          if (!isRead) {
-            ref.read(notificationProvider.notifier).markAsRead(notification.id);
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isRead ? Colors.white : const Color(0xFFF1F5F9).withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-            border: isRead ? Border.all(color: const Color(0xFFE2E8F0)) : Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.5),
+class _NotificationTile extends ConsumerWidget {
+  final AppNotification notification;
+
+  const _NotificationTile({required this.notification});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dateFormat = DateFormat('MMM dd, hh:mm a');
+    final isRead = notification.isRead;
+
+    return InkWell(
+      onTap: () {
+        if (!isRead) {
+          ref.read(notificationProvider.notifier).markAsRead(notification.id);
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isRead ? Colors.white : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isRead ? const Color(0xFFE2E8F0) : AppColors.primary.withOpacity(0.3),
+            width: isRead ? 1 : 1.5,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 48,
-                width: 48,
-                decoration: BoxDecoration(
-                  color: _getIconColor(notification.type).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(_getIcon(notification.type), color: _getIconColor(notification.type), size: 24),
+          boxShadow: isRead ? [] : [
+            BoxShadow(color: AppColors.primary.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _getTypeColor(notification.type).withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            notification.title,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isRead ? FontWeight.bold : FontWeight.w900,
-                              color: const Color(0xFF1E293B),
-                            ),
+              child: Icon(_getTypeIcon(notification.type), color: _getTypeColor(notification.type), size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          notification.title,
+                          style: TextStyle(
+                            fontWeight: isRead ? FontWeight.bold : FontWeight.w900,
+                            fontSize: 14,
+                            color: const Color(0xFF1E293B),
                           ),
                         ),
-                        Text(
-                          DateFormat('hh:mm a').format(notification.createdAt),
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      notification.message,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isRead ? const Color(0xFF64748B) : const Color(0xFF1E293B),
-                        fontWeight: isRead ? FontWeight.normal : FontWeight.w500,
                       ),
+                      if (!isRead)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.message,
+                    style: TextStyle(
+                      color: isRead ? const Color(0xFF64748B) : const Color(0xFF334155),
+                      fontSize: 13,
+                      height: 1.4,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(notification.createdAt),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1), fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    dateFormat.format(notification.createdAt),
+                    style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  IconData _getIcon(String type) {
+  IconData _getTypeIcon(String type) {
     switch (type.toUpperCase()) {
-      case 'SUCCESS':
-        return Icons.check_circle_rounded;
-      case 'WARNING':
-        return Icons.warning_rounded;
-      case 'ERROR':
-        return Icons.error_rounded;
-      case 'SECURITY':
-        return Icons.security_rounded;
+      case 'FUNDING':
+        return Icons.account_balance_wallet_rounded;
+      case 'AIRTIME':
+        return Icons.phone_android_rounded;
+      case 'DATA':
+        return Icons.wifi_tethering_rounded;
+      case 'ELECTRICITY':
+        return Icons.flash_on_rounded;
+      case 'CABLE_TV':
+        return Icons.tv_rounded;
       default:
-        return Icons.info_rounded;
+        return Icons.notifications_rounded;
     }
   }
 
-  Color _getIconColor(String type) {
+  Color _getTypeColor(String type) {
     switch (type.toUpperCase()) {
-      case 'SUCCESS':
-        return const Color(0xFF10B981);
-      case 'WARNING':
-        return const Color(0xFFF59E0B);
-      case 'ERROR':
-        return const Color(0xFFEF4444);
-      case 'SECURITY':
-        return const Color(0xFF6366F1);
+      case 'FUNDING':
+        return Colors.green;
+      case 'AIRTIME':
+        return Colors.blue;
+      case 'DATA':
+        return Colors.purple;
+      case 'ELECTRICITY':
+        return Colors.orange;
+      case 'CABLE_TV':
+        return Colors.red;
       default:
-        return const Color(0xFF3B82F6);
+        return AppColors.primary;
     }
   }
 }
