@@ -94,6 +94,18 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
 
       if (response.data['responseSuccessful']) {
         final data = response.data['responseBody'];
+        
+        // Check for internal errors like "WrongBillersCode" or "error" message
+        if (data != null && (data['error'] != null || data['WrongBillersCode'] == true)) {
+          final errorMsg = data['error'] ?? 'Invalid smartcard number. Please check and try again.';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
+          setState(() {
+            _isValidated = false;
+            _isVerifying = false;
+          });
+          return;
+        }
+
         setState(() {
           _isValidated = true;
           _accountName = data['name'] ?? data['customer_name'] ?? 'Account Verified';

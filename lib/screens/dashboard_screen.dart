@@ -286,7 +286,8 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFFFF7ED),
                       iconColor: const Color(0xFFF97316),
                       isTablet: isTablet,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BulkSMSScreen())),
+                      comingSoon: true,
+                      onTap: () {},
                     ),
                     _QuickAction(
                       icon: Icons.school_rounded,
@@ -302,7 +303,8 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFEEF2FF),
                       iconColor: const Color(0xFF6366F1),
                       isTablet: isTablet,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RechargePinScreen())),
+                      comingSoon: true,
+                      onTap: () {},
                     ),
                     _QuickAction(
                       icon: Icons.electric_bolt_rounded,
@@ -407,6 +409,8 @@ class _QuickAction extends StatelessWidget {
   final Color iconColor;
   final bool isTablet;
   final VoidCallback onTap;
+  final bool comingSoon;
+  final String? comingSoonText;
 
   const _QuickAction({
     required this.icon,
@@ -415,24 +419,54 @@ class _QuickAction extends StatelessWidget {
     required this.iconColor,
     required this.isTablet,
     required this.onTap,
+    this.comingSoon = false,
+    this.comingSoonText = 'Soon',
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
-          child: Container(
-            height: isTablet ? 80 : 60,
-            width: isTablet ? 80 : 60,
-            decoration: BoxDecoration(
-              color: color,
+        Stack(
+          children: [
+            InkWell(
+              onTap: comingSoon ? () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$label feature is coming soon!'))
+                );
+              } : onTap,
               borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
+              child: Container(
+                height: isTablet ? 80 : 60,
+                width: isTablet ? 80 : 60,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
+                ),
+                child: Opacity(
+                  opacity: comingSoon ? 0.5 : 1.0,
+                  child: Icon(icon, color: iconColor, size: isTablet ? 36 : 28)
+                ),
+              ),
             ),
-            child: Icon(icon, color: iconColor, size: isTablet ? 36 : 28),
-          ),
+            if (comingSoon)
+              Positioned(
+                top: 4,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Text(
+                    comingSoonText!,
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Text(

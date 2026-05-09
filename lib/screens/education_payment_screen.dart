@@ -97,10 +97,21 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
       });
 
       if (response.data['responseSuccessful']) {
+        final body = response.data['responseBody'];
+        if (body != null && (body['error'] != null || body['WrongBillersCode'] == true)) {
+          final errorMsg = body['error'] ?? 'Invalid Profile ID. Please check and try again.';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
+          setState(() {
+            _isValidated = false;
+            _isChecking = false;
+          });
+          return;
+        }
+
         setState(() {
           _isChecking = false;
           _isValidated = true;
-          _customerName = response.data['responseBody']['Customer_Name'];
+          _customerName = body['Customer_Name'] ?? body['name'];
         });
       } else {
         setState(() => _isChecking = false);
