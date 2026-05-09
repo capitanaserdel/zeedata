@@ -245,7 +245,7 @@ class DashboardScreen extends ConsumerWidget {
                     crossAxisCount: isTablet ? 6 : 4,
                     mainAxisSpacing: 16,
                     crossAxisSpacing: 16,
-                    childAspectRatio: 0.85,
+                    childAspectRatio: 0.7,
                   ),
                   delegate: SliverChildListDelegate([
                     _QuickAction(
@@ -439,6 +439,8 @@ class _QuickAction extends StatelessWidget {
           label,
           style: TextStyle(fontSize: isTablet ? 13 : 11, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
           textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

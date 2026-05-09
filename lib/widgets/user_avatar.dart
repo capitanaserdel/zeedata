@@ -55,23 +55,55 @@ class UserAvatar extends StatelessWidget {
             ),
         ],
       ),
-      child: CircleAvatar(
-        radius: radius,
-        backgroundColor: _generateColor(name),
-        backgroundImage: hasImage
-            ? CachedNetworkImageProvider('${AppConstants.baseUrl}/storage/$imageUrl')
-            : null,
-        child: !hasImage
-            ? Text(
-                _getInitials(name),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: radius * 0.8,
-                  letterSpacing: 1,
+      child: ClipOval(
+        child: SizedBox(
+          width: radius * 2,
+          height: radius * 2,
+          child: hasImage
+              ? CachedNetworkImage(
+                  imageUrl: imageUrl!.startsWith('http') ? imageUrl! : '${AppConstants.baseUrl}/storage/$imageUrl',
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: _generateColor(name),
+                    child: Center(
+                      child: Text(
+                        _getInitials(name),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: radius * 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: _generateColor(name),
+                    child: Center(
+                      child: Text(
+                        _getInitials(name),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: radius * 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
+                  color: _generateColor(name),
+                  child: Center(
+                    child: Text(
+                      _getInitials(name),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: radius * 0.8,
+                      ),
+                    ),
+                  ),
                 ),
-              )
-            : null,
+        ),
       ),
     );
   }
