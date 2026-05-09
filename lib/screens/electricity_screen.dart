@@ -20,7 +20,7 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
   final _amountController = TextEditingController();
   
   String? _selectedProvider;
-  String _meterType = 'PREPAID'; /
+  String _meterType = 'PREPAID';
   bool _isValidated = false;
   String? _accountName;
   String? _address;
