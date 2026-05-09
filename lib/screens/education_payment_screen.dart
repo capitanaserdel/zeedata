@@ -230,7 +230,8 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
         ),
         body: Stack(
           children: [
-            SingleChildScrollView(
+            Positioned.fill(
+              child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
@@ -353,6 +354,7 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
                 ),
               ),
             ),
+          ),
             if (_isLoadingVariations || _isProcessing || _isChecking) 
               CustomLoader(message: _isLoadingVariations ? 'Loading variations...' : (_isChecking ? 'Verifying...' : 'Processing...')),
           ],

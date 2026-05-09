@@ -247,6 +247,8 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 0,
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
                             ),
                             child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           ),

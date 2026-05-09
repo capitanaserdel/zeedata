@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_loader.dart';
+import '../core/validators/app_validators.dart';
 
 class ChangePinScreen extends ConsumerStatefulWidget {
   const ChangePinScreen({super.key});
@@ -30,7 +31,8 @@ class _ChangePinScreenState extends ConsumerState<ChangePinScreen> {
       ),
       body: Stack(
         children: [
-          SingleChildScrollView(
+          Positioned.fill(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(
               key: _formKey,
@@ -51,7 +53,7 @@ class _ChangePinScreenState extends ConsumerState<ChangePinScreen> {
                       labelText: 'Current PIN',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (v) => v!.length != 4 ? 'Must be 4 digits' : null,
+                    validator: AppValidators.validatePin,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -63,7 +65,7 @@ class _ChangePinScreenState extends ConsumerState<ChangePinScreen> {
                       labelText: 'New PIN',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (v) => v!.length != 4 ? 'Must be 4 digits' : null,
+                    validator: AppValidators.validatePin,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -111,6 +113,7 @@ class _ChangePinScreenState extends ConsumerState<ChangePinScreen> {
                     ),
                 ],
               ),
+            ),
             ),
           ),
           if (authState.isLoading) const CustomLoader(message: 'Updating PIN...'),

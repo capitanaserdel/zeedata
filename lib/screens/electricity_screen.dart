@@ -72,6 +72,18 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
       if (response.data['responseSuccessful']) {
         if (mounted) {
           final body = response.data['responseBody'];
+          
+          // Check for internal errors like "WrongBillersCode" or "error" message
+          if (body != null && (body['error'] != null || body['WrongBillersCode'] == true)) {
+            final errorMsg = body['error'] ?? 'Invalid meter number. Please check and try again.';
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
+            setState(() {
+              _isValidated = false;
+              _isChecking = false;
+            });
+            return;
+          }
+
           setState(() {
             _isValidated = true;
             _accountName = body['Customer_Name'] ?? body['name'] ?? "Verified Customer";
@@ -226,6 +238,8 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 0,
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
                             ),
                             child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           ),

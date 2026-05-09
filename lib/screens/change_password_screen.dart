@@ -34,7 +34,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       ),
       body: Stack(
         children: [
-          SingleChildScrollView(
+          Positioned.fill(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(
               key: _formKey,
@@ -136,6 +137,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     ),
                 ],
               ),
+            ),
             ),
           ),
           if (authState.isLoading) const CustomLoader(message: 'Updating password...'),

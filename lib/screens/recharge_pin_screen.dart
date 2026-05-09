@@ -207,7 +207,8 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
         ),
         body: Stack(
           children: [
-            SingleChildScrollView(
+            Positioned.fill(
+              child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
@@ -265,6 +266,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
                 ),
               ),
             ),
+          ),
             if (_isProcessing || authState.isLoading) const CustomLoader(message: 'Processing...'),
           ],
         ),
