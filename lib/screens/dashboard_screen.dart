@@ -113,7 +113,7 @@ class DashboardScreen extends ConsumerWidget {
                               radius: isTablet ? 24 : 20,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 4),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

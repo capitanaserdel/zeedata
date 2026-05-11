@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
@@ -253,6 +254,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
+  
+  Future<void> _launchURL(String urlString) async {
+    final url = Uri.parse(urlString);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the link')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -407,6 +421,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               title: 'Delete Account',
                               titleColor: Colors.red[700],
                               onTap: _confirmDeleteAccount,
+                            ),
+                          ]),
+                          const SizedBox(height: 32),
+                          _buildSectionLabel('LEGAL'),
+                          const SizedBox(height: 12),
+                          _buildMinimalContainer([
+                            _SettingsItem(
+                              icon: Icons.privacy_tip_outlined,
+                              title: 'Privacy Policy',
+                              onTap: () => _launchURL('https://zeedata.com.ng/privacy-policy'),
+                            ),
+                            const _MinimalDivider(),
+                            _SettingsItem(
+                              icon: Icons.description_outlined,
+                              title: 'Terms of Service',
+                              onTap: () => _launchURL('https://zeedata.com.ng/terms-of-service'),
                             ),
                           ]),
                           const SizedBox(height: 60),
