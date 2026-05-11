@@ -471,13 +471,15 @@ class DashboardScreen extends ConsumerWidget {
             }
           }
         },
-        backgroundColor: const Color(0xFF25D366),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        highlightElevation: 0,
         shape: const CircleBorder(),
         child: ClipOval(
           child: Image.asset(
             'assets/images/whatsapp_logoi.webp',
-            width: 40,
-            height: 40,
+            width: 80,
+            height: 80,
             fit: BoxFit.cover,
           ),
         ),

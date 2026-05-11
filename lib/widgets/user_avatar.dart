@@ -76,32 +76,14 @@ class UserAvatar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  errorWidget: (context, url, error) => Container(
-                    color: _generateColor(name),
-                    child: Center(
-                      child: Text(
-                        _getInitials(name),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: radius * 0.8,
-                        ),
-                      ),
-                    ),
+                  errorWidget: (context, url, error) => Image.asset(
+                    'assets/images/app_launcher.jpeg',
+                    fit: BoxFit.cover,
                   ),
                 )
-              : Container(
-                  color: _generateColor(name),
-                  child: Center(
-                    child: Text(
-                      _getInitials(name),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: radius * 0.8,
-                      ),
-                    ),
-                  ),
+              : Image.asset(
+                  'assets/images/app_launcher.jpeg',
+                  fit: BoxFit.cover,
                 ),
         ),
       ),
