@@ -23,12 +23,15 @@ import 'recharge_pin_screen.dart';
 import '../widgets/user_avatar.dart';
 import '../models/user_data.dart' as model;
 
+import '../providers/service_provider.dart';
+
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final serviceState = ref.watch(serviceProvider);
     final user = authState.user;
     final wallet = authState.wallet;
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
@@ -37,6 +40,9 @@ class DashboardScreen extends ConsumerWidget {
     final isTablet = screenWidth > 600;
     final horizontalPadding = screenWidth * 0.05; // 5% padding
 
+    // Check for any disabled services to show banner
+    final disabledServices = serviceState.services.where((s) => !s.isActive).map((s) => s.name).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: SafeArea(
@@ -44,10 +50,49 @@ class DashboardScreen extends ConsumerWidget {
           onRefresh: () async {
             await ref.read(authProvider.notifier).refreshProfile();
             await ref.read(notificationProvider.notifier).fetchUnreadCount();
+            await ref.read(serviceProvider.notifier).fetchServices();
           },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              if (user?.status == 'SUSPENDED')
+                SliverToBoxAdapter(
+                  child: Container(
+                    height: 20,
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(vertical: 20),
+                    color: Colors.red,
+                    alignment: Alignment.center,
+                    child: const Text('ACCOUNT SUSPENDED - PLEASE CONTACT SUPPORT', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ),
+                ),
+              
+              if (disabledServices.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    color: Colors.amber[700],
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 14),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${disabledServices.join(", ")} temporarily unavailable due to system maintenance', 
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
               // Premium Header
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 5),
@@ -133,8 +178,12 @@ class DashboardScreen extends ConsumerWidget {
               SliverPadding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 10),
                 sliver: SliverToBoxAdapter(
-                  child: Center(
-                    child: ConstrainedBox(
+                  child: IgnorePointer(
+                    ignoring: user?.status == 'SUSPENDED',
+                    child: Opacity(
+                      opacity: user?.status == 'SUSPENDED' ? 0.6 : 1.0,
+                      child: Center(
+                        child: ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: isTablet ? 500 : double.infinity),
                       child: Container(
                         width: double.infinity,
@@ -233,6 +282,8 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+            ),
+          ),
 
               // Quick Actions
               SliverPadding(
@@ -244,7 +295,11 @@ class DashboardScreen extends ConsumerWidget {
 
               SliverPadding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                sliver: SliverGrid(
+                sliver: SliverIgnorePointer(
+                  ignoring: user?.status == 'SUSPENDED',
+                  sliver: SliverOpacity(
+                    opacity: user?.status == 'SUSPENDED' ? 0.6 : 1.0,
+                    sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: isTablet ? 6 : 4,
                     mainAxisSpacing: 16,
@@ -258,6 +313,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFEEF2FF),
                       iconColor: const Color(0xFF6366F1),
                       isTablet: isTablet,
+                      isActive: ref.read(serviceProvider.notifier).isServiceActive('AIRTIME'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AirtimeScreen())),
                     ),
                     _QuickAction(
@@ -266,6 +322,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF0FDF4),
                       iconColor: const Color(0xFF22C55E),
                       isTablet: isTablet,
+                      isActive: ref.read(serviceProvider.notifier).isServiceActive('DATA'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DataScreen())),
                     ),
                     _QuickAction(
@@ -274,6 +331,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFFFF7ED),
                       iconColor: const Color(0xFFF97316),
                       isTablet: isTablet,
+                      isActive: ref.read(serviceProvider.notifier).isServiceActive('A2C') || ref.read(serviceProvider.notifier).isServiceActive('AIRTIME'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AirtimeToCashScreen())),
                     ),
                     _QuickAction(
@@ -282,6 +340,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF5F3FF),
                       iconColor: const Color(0xFF8B5CF6),
                       isTablet: isTablet,
+                      isActive: ref.read(serviceProvider.notifier).isServiceActive('CABLE'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CableTVScreen())),
                     ),
                     _QuickAction(
@@ -299,6 +358,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF0FDF4),
                       iconColor: const Color(0xFF10B981),
                       isTablet: isTablet,
+                      isActive: ref.read(serviceProvider.notifier).isServiceActive('EDUCATION'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationScreen())),
                     ),
                     _QuickAction(
@@ -316,9 +376,12 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFFFFBEB),
                       iconColor: const Color(0xFFF59E0B),
                       isTablet: isTablet,
+                      isActive: ref.read(serviceProvider.notifier).isServiceActive('UTILITY'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ElectricityScreen())),
                     ),
                   ]),
+                    ),
+                  ),
                 ),
               ),
 
@@ -415,6 +478,7 @@ class _QuickAction extends StatelessWidget {
   final VoidCallback onTap;
   final bool comingSoon;
   final String? comingSoonText;
+  final bool isActive;
 
   const _QuickAction({
     required this.icon,
@@ -425,18 +489,24 @@ class _QuickAction extends StatelessWidget {
     required this.onTap,
     this.comingSoon = false,
     this.comingSoonText = 'Soon',
+    this.isActive = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isDisabled = comingSoon || !isActive;
+    
     return Column(
       children: [
         Stack(
           children: [
             InkWell(
-              onTap: comingSoon ? () {
+              onTap: isDisabled ? () {
+                final message = comingSoon 
+                  ? '$label feature is coming soon!' 
+                  : '$label is temporarily unavailable';
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$label feature is coming soon!'))
+                  SnackBar(content: Text(message))
                 );
               } : onTap,
               borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
@@ -444,28 +514,28 @@ class _QuickAction extends StatelessWidget {
                 height: isTablet ? 80 : 60,
                 width: isTablet ? 80 : 60,
                 decoration: BoxDecoration(
-                  color: color,
+                  color: isDisabled ? Colors.grey[200] : color,
                   borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
                 ),
                 child: Opacity(
-                  opacity: comingSoon ? 0.5 : 1.0,
-                  child: Icon(icon, color: iconColor, size: isTablet ? 36 : 28)
+                  opacity: isDisabled ? 0.4 : 1.0,
+                  child: Icon(icon, color: isDisabled ? Colors.grey[400] : iconColor, size: isTablet ? 36 : 28)
                 ),
               ),
             ),
-            if (comingSoon)
+            if (isDisabled)
               Positioned(
                 top: 4,
                 right: -4,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
+                    color: comingSoon ? const Color(0xFFEF4444) : Colors.amber[800],
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white, width: 1.5),
                   ),
                   child: Text(
-                    comingSoonText!,
+                    comingSoon ? comingSoonText! : 'OFFLINE',
                     style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                   ),
                 ),

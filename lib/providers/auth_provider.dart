@@ -140,6 +140,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } catch (e) {
       print("❌ Refresh Error: $e");
+      if (e.toString().contains('Session expired') || e.toString().contains('Unauthenticated') || e.toString().contains('Access denied')) {
+        debugPrint('🧹 Wiping session due to 401/Deleted Account');
+        await _sessionManager.fullWipe();
+        state = AuthState(isFirstTime: false, isAccountDeleted: true, isInitializing: false);
+      }
     }
   }
 

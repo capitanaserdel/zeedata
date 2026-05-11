@@ -304,53 +304,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           const SizedBox(height: 32),
                           _buildSectionLabel('REFERRAL PROGRAM'),
                           const SizedBox(height: 12),
-                          _buildMinimalContainer([
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              leading: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                                ),
-                                child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF041f62), size: 18),
-                              ),
-                              title: Text(
-                                user?.referral?.code ?? '---',
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B), letterSpacing: 2),
-                              ),
-                              subtitle: const Text('Your Referral Code', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.copy_rounded, size: 20, color: Color(0xFF041f62)),
-                                    onPressed: () {
-                                      if (user?.referral?.code != null) {
-                                        Clipboard.setData(ClipboardData(text: user!.referral!.code));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Referral code copied to clipboard')),
-                                        );
-                                      }
-                                    },
+                          IgnorePointer(
+                            ignoring: user?.status == 'SUSPENDED',
+                            child: Opacity(
+                              opacity: user?.status == 'SUSPENDED' ? 0.5 : 1.0,
+                              child: _buildMinimalContainer([
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFF1F5F9)),
+                                    ),
+                                    child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF041f62), size: 18),
                                   ),
-                                ],
-                              ),
+                                  title: Text(
+                                    user?.referral?.code ?? '---',
+                                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B), letterSpacing: 2),
+                                  ),
+                                  subtitle: const Text('Your Referral Code', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.copy_rounded, size: 20, color: Color(0xFF041f62)),
+                                        onPressed: () {
+                                          if (user?.referral?.code != null) {
+                                            Clipboard.setData(ClipboardData(text: user!.referral!.code));
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Referral code copied to clipboard')),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const _MinimalDivider(),
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    children: [
+                                      _buildReferralStat('Total Referrals', '${user?.referral?.totalReferrals ?? 0}'),
+                                      Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
+                                      _buildReferralStat('Total Earned', '₦${user?.referral?.totalEarned ?? 0}'),
+                                    ],
+                                  ),
+                                ),
+                              ]),
                             ),
-                            const _MinimalDivider(),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildReferralStat('Total Referrals', '${user?.referral?.totalReferrals ?? 0}'),
-                                  Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
-                                  _buildReferralStat('Total Earned', '₦${user?.referral?.totalEarned ?? 0}'),
-                                ],
-                              ),
-                            ),
-                          ]),
+                          ),
                           const SizedBox(height: 32),
                           _buildSectionLabel('SECURITY'),
                           const SizedBox(height: 12),
