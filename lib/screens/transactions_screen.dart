@@ -33,25 +33,27 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(authProvider.notifier).fetchTransactions();
         },
-        child: authState.recentTransactions.isEmpty
-            ? _buildEmptyState()
-            : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                itemCount: authState.recentTransactions.length,
-                itemBuilder: (context, index) {
-                  final tx = authState.recentTransactions[index];
-                  return _buildTransactionTile(tx, currencyFormat);
-                },
-              ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: authState.recentTransactions.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    itemCount: authState.recentTransactions.length,
+                    itemBuilder: (context, index) {
+                      final tx = authState.recentTransactions[index];
+                      return _buildTransactionTile(tx, currencyFormat);
+                    },
+                  ),
+          ),
+        ),
       ),
     );
   }

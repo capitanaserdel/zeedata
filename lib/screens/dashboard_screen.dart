@@ -243,53 +243,68 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 12),
 
-                            if (user?.virtualAccount != null) ...[
-                              const SizedBox(height: 24),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          (user?.virtualAccount?.bankName ?? 'PALMPAY').toUpperCase(),
-                                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: isTablet ? 12 : 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          user?.virtualAccount?.accountNumber ?? '0000000000',
-                                          style: TextStyle(color: Colors.white, fontSize: isTablet ? 18 : 16, fontWeight: FontWeight.w800, letterSpacing: 1),
-                                        ),
-                                      ],
-                                    ),
-                                    const Spacer(),
-                                    InkWell(
-                                      onTap: () {
-                                        Clipboard.setData(ClipboardData(text: user?.virtualAccount?.accountNumber ?? ''));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: const Text('Account Number Copied!'),
-                                            backgroundColor: AppColors.primary,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            if (user?.virtualAccounts != null && user!.virtualAccounts.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              ...user.virtualAccounts.map((va) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                (va.bankName ?? 'BANK').toUpperCase(),
+                                                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: isTablet ? 12 : 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                              ),
+                                              if (va.isPrimary) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                                                  child: const Text('PRIMARY', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ],
+                                            ],
                                           ),
-                                        );
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-                                        child: Icon(Icons.copy_rounded, color: Colors.white, size: isTablet ? 20 : 16),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            va.accountNumber ?? '0000000000',
+                                            style: TextStyle(color: Colors.white, fontSize: isTablet ? 18 : 16, fontWeight: FontWeight.w800, letterSpacing: 1),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
+                                      const Spacer(),
+                                      InkWell(
+                                        onTap: () {
+                                          Clipboard.setData(ClipboardData(text: va.accountNumber ?? ''));
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('${va.bankName} Account Copied!'),
+                                              backgroundColor: AppColors.primary,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+                                          child: Icon(Icons.copy_rounded, color: Colors.white, size: isTablet ? 20 : 16),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
+                              )).toList(),
                             ],
                           ],
                         ),
@@ -401,56 +416,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // Transactions Header
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(horizontalPadding + 4, 32, horizontalPadding + 4, 10),
-                sliver: SliverToBoxAdapter(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Recent Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
-                      TextButton(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TransactionsScreen())),
-                        child: const Text('See All', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Transactions List
-              if (authState.recentTransactions.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Center(child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: Column(
-                      children: [
-                        Icon(Icons.history_rounded, size: 48, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text('No transactions yet', style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                  )),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final tx = authState.recentTransactions[index];
-                      return Padding(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 4),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: _TransactionItem(transaction: tx),
-                        ),
-                      );
-                    },
-                    childCount: authState.recentTransactions.length > 2 ? 2 : authState.recentTransactions.length,
-                  ),
-                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 30)),
               
               const SliverToBoxAdapter(child: SizedBox(height: 30)),
             ],

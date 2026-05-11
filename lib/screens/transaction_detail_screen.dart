@@ -93,26 +93,31 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Screenshot(
-              controller: _screenshotController,
-              child: Container(
-                color: const Color(0xFFF8FAFC),
-                child: Column(
-                  children: [
-                    _buildAmountHeader(currencyFormat),
-                    const SizedBox(height: 12),
-                    _buildInfoSection(dateFormat),
-                  ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                Screenshot(
+                  controller: _screenshotController,
+                  child: Container(
+                    color: const Color(0xFFF8FAFC),
+                    child: Column(
+                      children: [
+                        _buildAmountHeader(currencyFormat),
+                        const SizedBox(height: 12),
+                        _buildInfoSection(dateFormat),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 32),
+                _buildActionButtons(),
+                const SizedBox(height: 40),
+              ],
             ),
-            const SizedBox(height: 32),
-            _buildActionButtons(),
-            const SizedBox(height: 40),
-          ],
+          ),
         ),
       ),
     );

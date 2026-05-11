@@ -111,8 +111,14 @@ class AppValidators {
       return 'Amount is required';
     }
     final amount = double.tryParse(value);
-    if (amount == null || amount <= 0) {
+    if (amount == null) {
       return 'Enter a valid amount';
+    }
+    if (amount < 50) {
+      return 'Minimum amount is ₦50';
+    }
+    if (amount > 5000000) {
+      return 'Maximum amount is ₦5,000,000';
     }
     if (amount > balance) {
       return 'Insufficient wallet balance';

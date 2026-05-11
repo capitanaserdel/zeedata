@@ -259,6 +259,7 @@ class _AirtimeScreenState extends ConsumerState<AirtimeScreen> {
       keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
       decoration: InputDecoration(
         labelText: label,

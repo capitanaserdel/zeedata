@@ -279,6 +279,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         title: const Text('Account Settings', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B), fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         centerTitle: true,
       ),
       body: Stack(
@@ -430,13 +431,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             _SettingsItem(
                               icon: Icons.privacy_tip_outlined,
                               title: 'Privacy Policy',
-                              onTap: () => _launchURL('https://zeedata.com.ng/privacy-policy'),
+                              onTap: () => _launchURL('https://zeedata.com.ng/privacy'),
                             ),
                             const _MinimalDivider(),
                             _SettingsItem(
                               icon: Icons.description_outlined,
                               title: 'Terms of Service',
-                              onTap: () => _launchURL('https://zeedata.com.ng/terms-of-service'),
+                              onTap: () => _launchURL('https://zeedata.com.ng/terms'),
                             ),
                           ]),
                           const SizedBox(height: 60),

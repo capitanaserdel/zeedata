@@ -159,7 +159,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    user?.fullname ?? 'User',
+                    user?.fullname.split(' ').first ?? 'User',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: isSmallScreen ? 20 : 24, fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),

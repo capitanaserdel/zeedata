@@ -405,6 +405,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> register({
     required String fullname,
     required String email,
+    required String phone,
     required String password,
     required String otp,
     String? pin,
@@ -415,6 +416,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final response = await _apiService.post('/register', data: {
         'fullname': fullname,
         'email': email,
+        'phone': phone,
         'password': password,
         'otp': otp,
         'pin': pin,

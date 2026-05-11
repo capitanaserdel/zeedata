@@ -8,15 +8,15 @@ import '../widgets/custom_loader.dart';
 class EmailVerificationScreen extends ConsumerStatefulWidget {
   final String fullname;
   final String email;
+  final String phone;
   final String password;
-  final String? referralCode;
 
   const EmailVerificationScreen({
     super.key,
     required this.fullname,
     required this.email,
+    required this.phone,
     required this.password,
-    this.referralCode,
   });
 
   @override
@@ -25,6 +25,7 @@ class EmailVerificationScreen extends ConsumerStatefulWidget {
 
 class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScreen> {
   final _otpController = TextEditingController();
+  final _referralController = TextEditingController();
   Timer? _timer;
   int _secondsRemaining = 60;
   bool _canResend = false;
@@ -39,6 +40,7 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
   void dispose() {
     _timer?.cancel();
     _otpController.dispose();
+    _referralController.dispose();
     super.dispose();
   }
 
@@ -75,7 +77,6 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Background Decor
           Positioned(
             top: -100,
             right: -100,
@@ -106,7 +107,7 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
                   ),
                   const SizedBox(height: 40),
                   const Text(
-                    'Verify Email',
+                    'Verification',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
@@ -117,7 +118,7 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
                   const SizedBox(height: 12),
                   RichText(
                     text: TextSpan(
-                      text: 'We sent a 6-digit verification code to ',
+                      text: 'Enter the 6-digit code sent to ',
                       style: const TextStyle(fontSize: 16, color: Color(0xFF64748B), height: 1.5),
                       children: [
                         TextSpan(
@@ -127,19 +128,14 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Row(
-                    children: [
-                      Icon(Icons.timer_outlined, size: 16, color: Color(0xFF64748B)),
-                      SizedBox(width: 6),
-                      Text(
-                        'Code expires in 10 minutes',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 40),
                   
+                  // OTP FIELD
+                  const Text(
+                    'OTP CODE',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8), letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     controller: _otpController,
                     keyboardType: TextInputType.number,
@@ -163,7 +159,33 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 24),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // REFERRAL FIELD
+                  const Text(
+                    'REFERRAL CODE (OPTIONAL)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8), letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _referralController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. ZEEDATA-123',
+                      prefixIcon: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF94A3B8)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
+                      ),
                     ),
                   ),
                   
@@ -250,13 +272,13 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
     final success = await ref.read(authProvider.notifier).register(
       fullname: widget.fullname,
       email: widget.email,
+      phone: widget.phone,
       password: widget.password,
       otp: _otpController.text.trim(),
-      referralCode: widget.referralCode,
+      referralCode: _referralController.text.trim().isEmpty ? null : _referralController.text.trim(),
     );
     
     if (success && mounted) {
-      // Auth state change in main.dart handles navigation to home
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }

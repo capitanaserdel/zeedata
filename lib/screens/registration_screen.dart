@@ -19,8 +19,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullnameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _referralController = TextEditingController();
   
   bool _obscurePassword = true;
 
@@ -28,8 +28,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   void dispose() {
     _fullnameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
-    _referralController.dispose();
     super.dispose();
   }
 
@@ -117,6 +117,24 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       const SizedBox(height: 20),
                       
                       _buildInputField(
+                        controller: _phoneController,
+                        label: 'Phone Number',
+                        icon: Icons.phone_android_rounded,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(11),
+                        ],
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Phone number is required';
+                          if (v.length < 11) return 'Enter a valid 11-digit number';
+                          return null;
+                        },
+                        helperText: 'e.g. 08012345678',
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      _buildInputField(
                         controller: _passwordController,
                         label: 'Login PIN (6 digits)',
                         icon: Icons.lock_outline_rounded,
@@ -130,14 +148,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                         ],
                         validator: AppValidators.validatePassword,
                         helperText: 'A strong 6-digit numeric PIN for login.',
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      _buildInputField(
-                        controller: _referralController,
-                        label: 'Referral Code (Optional)',
-                        icon: Icons.card_giftcard_rounded,
-                        validator: (v) => null,
                       ),
                       
                       const SizedBox(height: 40),
@@ -239,8 +249,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             builder: (context) => EmailVerificationScreen(
               fullname: _fullnameController.text.trim(),
               email: _emailController.text.trim(),
+              phone: _phoneController.text.trim(),
               password: _passwordController.text,
-              referralCode: _referralController.text.trim(),
             ),
           ),
         );

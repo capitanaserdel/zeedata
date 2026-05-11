@@ -42,6 +42,8 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
   String? _selectedNetwork;
   _A2CStep _step = _A2CStep.form;
   bool _isLoading = false;
+  int _resendTimer = 0;
+  bool _canResend = true;
 
   // Returned by Step 1
   String? _identifier;
@@ -63,7 +65,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
 
   // ── STEP 1: Send OTP ──────────────────────────────────────────────────────
   Future<void> _sendOtp() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_step == _A2CStep.form && !_formKey.currentState!.validate()) return;
     if (_selectedNetwork == null) {
       _showSnack('Please select a network');
       return;
@@ -79,6 +81,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
         setState(() {
           _identifier = res.data['responseBody']['identifier'];
           _step = _A2CStep.otp;
+          _startResendTimer();
         });
         _showSnack('OTP sent to ${_phoneCtrl.text}', isSuccess: true);
       } else {
@@ -89,6 +92,25 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _startResendTimer() {
+    setState(() {
+      _resendTimer = 60;
+      _canResend = false;
+    });
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() {
+        if (_resendTimer > 0) {
+          _resendTimer--;
+        } else {
+          _canResend = true;
+        }
+      });
+      return _resendTimer > 0;
+    });
   }
 
   // ── STEP 2: Verify OTP ────────────────────────────────────────────────────
@@ -162,6 +184,9 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
   // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -185,7 +210,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
       ),
       body: Stack(
         children: [
-          _buildBody(),
+          _buildBody(isTablet, size),
           if (_isLoading)
             CustomLoader(message: _step == _A2CStep.form
                 ? 'Sending OTP…'
@@ -195,9 +220,12 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isTablet, Size size) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? size.width * 0.2 : 24.0,
+        vertical: 24.0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -354,8 +382,14 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
       _primaryButton('Verify OTP', _verifyOtp),
       const SizedBox(height: 16),
       Center(child: TextButton(
-        onPressed: _isLoading ? null : _sendOtp,
-        child: const Text('Resend OTP', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+        onPressed: (_isLoading || !_canResend) ? null : _sendOtp,
+        child: Text(
+          _canResend ? 'Resend OTP' : 'Resend in ${_resendTimer}s',
+          style: TextStyle(
+            color: _canResend ? AppColors.primary : const Color(0xFF94A3B8),
+            fontWeight: FontWeight.w700
+          )
+        ),
       )),
     ]);
   }

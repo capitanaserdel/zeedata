@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'profile_screen.dart';
+import 'transactions_screen.dart';
 import 'create_pin_screen.dart';
 import '../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
+    const TransactionsScreen(),
     const ProfileScreen(),
   ];
 
@@ -61,6 +63,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 child: Icon(Icons.grid_view_rounded),
               ),
               label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.receipt_long_rounded),
+              ),
+              label: 'Transactions',
             ),
             BottomNavigationBarItem(
               icon: Padding(

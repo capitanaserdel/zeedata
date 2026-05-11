@@ -228,6 +228,9 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
     final hideBalance = ref.watch(balanceVisibilityProvider);
 
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
+
     return KeyboardDismissOnTap(
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
@@ -245,7 +248,10 @@ class _EducationPaymentScreenState extends ConsumerState<EducationPaymentScreen>
           children: [
             Positioned.fill(
               child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? size.width * 0.2 : 24.0,
+                vertical: 24.0,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(

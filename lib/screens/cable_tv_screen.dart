@@ -197,6 +197,8 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
     final balance = authState.wallet?.balance ?? 0;
     final hideBalance = ref.watch(balanceVisibilityProvider);
     final isBalanceLow = _currentPrice > balance;
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
 
     return KeyboardDismissOnTap(
       child: Scaffold(
@@ -215,7 +217,10 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
           children: [
             Positioned.fill(
               child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? size.width * 0.2 : 24.0,
+                vertical: 24,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(

@@ -20,7 +20,9 @@ class User {
   final bool hasPin;
   final UserSetting? userSettings;
   final VirtualAccount? virtualAccount;
+  final List<VirtualAccount> virtualAccounts;
   final ReferralData? referral;
+  final Wallet? wallet;
   final DateTime? createdAt;
 
   User({
@@ -37,7 +39,9 @@ class User {
     required this.hasPin,
     this.userSettings,
     this.virtualAccount,
+    this.virtualAccounts = const [],
     this.referral,
+    this.wallet,
     this.createdAt,
   });
 
@@ -60,7 +64,15 @@ class User {
       virtualAccount: (json['virtualAccount'] ?? json['virtual_account']) != null
           ? VirtualAccount.fromJson(json['virtualAccount'] ?? json['virtual_account'])
           : null,
+      virtualAccounts: json['virtual_accounts'] is List
+          ? (json['virtual_accounts'] as List)
+              .map((e) => VirtualAccount.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : (json['virtualAccounts'] is List 
+              ? (json['virtualAccounts'] as List).map((e) => VirtualAccount.fromJson(e as Map<String, dynamic>)).toList() 
+              : []),
       referral: json['referral'] != null ? ReferralData.fromJson(json['referral']) : null,
+      wallet: json['wallet'] != null ? Wallet.fromJson(json['wallet']) : null,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']).toLocal() : null,
     );
   }
@@ -71,8 +83,19 @@ class VirtualAccount {
   final String? accountName;
   final String? bankName;
   final String? reference;
+  final String? provider;
+  final bool isPrimary;
+  final String status;
 
-  VirtualAccount({this.accountNumber, this.accountName, this.bankName, this.reference});
+  VirtualAccount({
+    this.accountNumber,
+    this.accountName,
+    this.bankName,
+    this.reference,
+    this.provider,
+    this.isPrimary = false,
+    this.status = 'ACTIVE',
+  });
 
   factory VirtualAccount.fromJson(Map<String, dynamic> json) {
     return VirtualAccount(
@@ -80,6 +103,9 @@ class VirtualAccount {
       accountName: json['account_name'],
       bankName: json['bank_name'],
       reference: json['reference'],
+      provider: json['provider'],
+      isPrimary: parseBool(json['is_primary']),
+      status: json['status'] ?? 'ACTIVE',
     );
   }
 }
@@ -145,23 +171,10 @@ class Transaction {
     String dateStr = json['created_at'];
     DateTime dt;
     if (dateStr.contains('Z') || dateStr.contains('+') || (dateStr.length > 19 && dateStr.contains('-', 19))) {
-      // String has timezone info
       dt = DateTime.parse(dateStr).toLocal();
     } else {
-      // String has NO timezone info (typical for Laravel with local timezone)
-      // If it's 1 hour late, it means it's UTC but treated as local, OR it's local but missing Z.
-      // We assume the server sends Lagos time (+1) but without offset.
-      // To fix "1 hour late", we can explicitly add 1 hour if we suspect it's UTC.
-      // HOWEVER, if Laravel APP_TIMEZONE is Lagos, created_at is ALREADY Lagos time.
-      // If the phone is also Lagos, DateTime.parse(dateStr) is correct.
-      // If the user says it's 1 hour late, maybe the DB IS UTC.
       dt = DateTime.parse(dateStr);
-      // Force WAT (+1) if it looks like UTC was intended
       if (!dt.isUtc) {
-         // If parsed as local, and it's late, maybe we should treat it as UTC and convert to local?
-         // If 18:00 UTC is real time 19:00 Lagos.
-         // parse("18:00") -> 18:00 Local. (1 hour late).
-         // So we treat as UTC: DateTime.parse("18:00" + "Z").toLocal() -> 19:00 Lagos.
          dt = DateTime.parse("${dateStr.replaceFirst(' ', 'T')}Z").toLocal();
       }
     }
