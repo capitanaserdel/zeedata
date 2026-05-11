@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'electricity_screen.dart';
@@ -24,6 +25,7 @@ import '../widgets/user_avatar.dart';
 import '../models/user_data.dart' as model;
 
 import '../providers/service_provider.dart';
+import '../providers/balance_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -34,6 +36,7 @@ class DashboardScreen extends ConsumerWidget {
     final serviceState = ref.watch(serviceProvider);
     final user = authState.user;
     final wallet = authState.wallet;
+    final hideBalance = ref.watch(balanceVisibilityProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
     
     final screenWidth = MediaQuery.of(context).size.width;
@@ -209,7 +212,20 @@ class DashboardScreen extends ConsumerWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: isTablet ? 16 : 14, fontWeight: FontWeight.w600)),
+                                Row(
+                                  children: [
+                                    Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: isTablet ? 16 : 14, fontWeight: FontWeight.w600)),
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: () => ref.read(balanceVisibilityProvider.notifier).toggle(),
+                                      child: Icon(
+                                        hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                        color: Colors.white70,
+                                        size: isTablet ? 18 : 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 GestureDetector(
                                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FundWalletScreen())),
                                   child: Container(
@@ -222,8 +238,8 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              currencyFormat.format(wallet?.balance ?? 0),
-                              style: TextStyle(color: Colors.white, fontSize: isTablet ? 48 : 36, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                              hideBalance ? '₦ ••••••••' : currencyFormat.format(wallet?.balance ?? 0),
+                              style: TextStyle(color: Colors.white, fontSize: isTablet ? 48 : 36, fontWeight: FontWeight.w900, letterSpacing: hideBalance ? 2 : -0.5),
                             ),
                             const SizedBox(height: 12),
 
@@ -438,6 +454,31 @@ class DashboardScreen extends ConsumerWidget {
               
               const SliverToBoxAdapter(child: SizedBox(height: 30)),
             ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          const phoneNumber = "2348108295595";
+          final url = Uri.parse("https://wa.me/$phoneNumber");
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url, mode: LaunchMode.externalApplication);
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not launch WhatsApp')),
+              );
+            }
+          }
+        },
+        backgroundColor: const Color(0xFF25D366),
+        shape: const CircleBorder(),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/images/whatsapp_logoi.webp',
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
           ),
         ),
       ),

@@ -9,6 +9,7 @@ import '../models/user_data.dart';
 import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
+import '../providers/balance_provider.dart';
 
 class CableTVScreen extends ConsumerStatefulWidget {
   const CableTVScreen({super.key});
@@ -194,6 +195,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
     final authState = ref.watch(authProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
     final balance = authState.wallet?.balance ?? 0;
+    final hideBalance = ref.watch(balanceVisibilityProvider);
     final isBalanceLow = _currentPrice > balance;
 
     return KeyboardDismissOnTap(
@@ -219,7 +221,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildBalanceCard(balance, currencyFormat),
+                    _buildBalanceCard(balance, currencyFormat, hideBalance),
                     const SizedBox(height: 32),
                     
                     const Text('Select Provider', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
@@ -403,7 +405,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
     );
   }
 
-  Widget _buildBalanceCard(double balance, NumberFormat format) {
+  Widget _buildBalanceCard(double balance, NumberFormat format, bool hideBalance) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -415,11 +417,29 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+          Row(
+            children: [
+              const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => ref.read(balanceVisibilityProvider.notifier).toggle(),
+                child: Icon(
+                  hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
-            format.format(balance),
-            style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
+            hideBalance ? '₦ ••••••••' : format.format(balance),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: hideBalance ? 2 : -1,
+            ),
           ),
         ],
       ),

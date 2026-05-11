@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../core/validators/app_validators.dart';
 import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
+import '../providers/balance_provider.dart';
 
 class BulkSMSScreen extends ConsumerStatefulWidget {
   const BulkSMSScreen({super.key});
@@ -144,6 +145,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
+    final hideBalance = ref.watch(balanceVisibilityProvider);
 
     return KeyboardDismissOnTap(
       child: Scaffold(
@@ -168,7 +170,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildBalanceCard(authState, currencyFormat),
+                    _buildBalanceCard(authState, currencyFormat, hideBalance),
                     const SizedBox(height: 12),
                     
                     InsufficientBalanceIndicator(
@@ -266,7 +268,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
     );
   }
 
-  Widget _buildBalanceCard(AuthState authState, NumberFormat format) {
+  Widget _buildBalanceCard(AuthState authState, NumberFormat format, bool hideBalance) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -280,11 +282,29 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          Row(
+            children: [
+              const Text('Wallet Balance', style: TextStyle(color: Colors.white70, fontSize: 14)),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => ref.read(balanceVisibilityProvider.notifier).toggle(),
+                child: Icon(
+                  hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
-            format.format(authState.wallet?.balance ?? 0),
-            style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
+            hideBalance ? '₦ ••••••••' : format.format(authState.wallet?.balance ?? 0),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: hideBalance ? 2 : -1,
+            ),
           ),
         ],
       ),

@@ -9,6 +9,7 @@ import '../core/validators/app_validators.dart';
 import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
+import '../providers/balance_provider.dart';
 
 class DataScreen extends ConsumerStatefulWidget {
   const DataScreen({super.key});
@@ -77,6 +78,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
     final authState = ref.watch(authProvider);
     final wallet = authState.wallet;
     final balance = wallet?.balance ?? 0;
+    final hideBalance = ref.watch(balanceVisibilityProvider);
     final currencyFormat = NumberFormat.currency(symbol: '₦', decimalDigits: 2);
     final size = MediaQuery.of(context).size;
     final isTablet = size.width > 600;
@@ -128,18 +130,31 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Wallet Balance',
-                            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                          Row(
+                            children: [
+                              const Text(
+                                'Wallet Balance',
+                                style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => ref.read(balanceVisibilityProvider.notifier).toggle(),
+                                child: Icon(
+                                  hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  color: Colors.white70,
+                                  size: 16,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            currencyFormat.format(balance),
-                            style: const TextStyle(
+                            hideBalance ? '₦ ••••••••' : currencyFormat.format(balance),
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: -1,
+                              letterSpacing: hideBalance ? 2 : -1,
                             ),
                           ),
                         ],
