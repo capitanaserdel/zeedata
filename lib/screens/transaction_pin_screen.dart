@@ -38,11 +38,18 @@ class _TransactionPinScreenState extends ConsumerState<TransactionPinScreen> {
       final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
       final bool canAuthenticate = canAuthenticateWithBiometrics || await auth.isDeviceSupported();
 
-      if (!canAuthenticate) return;
+      if (!canAuthenticate) {
+        if (mounted && _isAutoPromptDone) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Biometrics not available on this device')),
+          );
+        }
+        return;
+      }
 
       final bool didAuthenticate = await auth.authenticate(
         localizedReason: 'Please authenticate to authorize this transaction',
-        options: AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+        options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
       );
 
       if (mounted && didAuthenticate) {
@@ -50,11 +57,11 @@ class _TransactionPinScreenState extends ConsumerState<TransactionPinScreen> {
         if (storedPin != null) {
           Navigator.pop(context, storedPin); 
         } else {
-          // Critical error: PIN missing locally but user is authenticated
+          // PIN missing locally (e.g. fresh login). 
+          // We don't pop, we just let them enter it manually.
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Security error: PIN not found. Please re-login.')),
+            const SnackBar(content: Text('Please enter your PIN manually this time to enable biometrics.')),
           );
-          Navigator.pop(context);
         }
       }
     } catch (e) {
@@ -84,8 +91,13 @@ class _TransactionPinScreenState extends ConsumerState<TransactionPinScreen> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
 
-    // TODO: Implement actual backend PIN verification if needed
-    // For now, we'll return the PIN to the calling screen for verification during the transaction call
+    // Save PIN locally for future biometric authorization
+    final biometricEnabled = ref.read(authProvider).user?.userSettings?.pinFingerprint ?? false;
+    if (biometricEnabled) {
+      await ref.read(authProvider.notifier).saveStoredPin(_pin);
+    }
+
+    // Give a slight delay for better UX
     await Future.delayed(const Duration(milliseconds: 500));
     
     if (mounted) {

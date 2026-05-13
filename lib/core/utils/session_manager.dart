@@ -4,16 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SessionManager {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   
-  // Shared Preferences Keys
+  // Shared Preferences Keys (Non-sensitive/UI state)
   static const String keyIsFirstTime = 'is_first_time';
-  static const String keyLastUserName = 'last_user_name';
-  static const String keyLastUserEmail = 'last_user_email';
-  static const String keyBiometricsEnabled = 'biometrics_enabled';
 
-  // Secure Storage Keys
+  // Secure Storage Keys (Sensitive/Persistent)
   static const String keyAuthToken = 'auth_token';
   static const String keyUserPin = 'user_transaction_pin';
-  static const String keyUserPassword = 'user_login_password';
+  static const String keyLastUserName = 'last_user_name';
+  static const String keyLastUserEmail = 'last_user_email';
+  static const String keyHasAccount = 'has_active_account';
+  static const String keyLoginBiometricsEnabled = 'login_biometrics_enabled';
+  static const String keyTransactionBiometricsEnabled = 'transaction_biometrics_enabled';
 
   // First Time User
   Future<bool> isFirstTime() async {
@@ -29,6 +30,7 @@ class SessionManager {
   // Auth Token
   Future<void> saveToken(String token) async {
     await _secureStorage.write(key: keyAuthToken, value: token);
+    await _secureStorage.write(key: keyHasAccount, value: 'true');
   }
 
   Future<String?> getToken() async {
@@ -52,51 +54,49 @@ class SessionManager {
   Future<void> clearBiometricEnrollment() async {
     await setLoginBiometricsEnabled(false);
     await setTransactionBiometricsEnabled(false);
-    await _secureStorage.delete(key: keyUserPin); // Invalidate stored PIN too
+    await _secureStorage.delete(key: keyUserPin);
     print("🔒 BIOMETRIC ENROLLMENT CLEARED");
   }
 
   // Login Biometrics
   Future<void> setLoginBiometricsEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('login_biometrics_enabled', enabled);
+    await _secureStorage.write(key: keyLoginBiometricsEnabled, value: enabled.toString());
   }
 
   Future<bool> isLoginBiometricsEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('login_biometrics_enabled') ?? false;
+    final val = await _secureStorage.read(key: keyLoginBiometricsEnabled);
+    return val == 'true';
   }
 
   // Transaction Biometrics
   Future<void> setTransactionBiometricsEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('transaction_biometrics_enabled', enabled);
+    await _secureStorage.write(key: keyTransactionBiometricsEnabled, value: enabled.toString());
   }
 
   Future<bool> isTransactionBiometricsEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('transaction_biometrics_enabled') ?? false;
+    final val = await _secureStorage.read(key: keyTransactionBiometricsEnabled);
+    return val == 'true';
   }
 
   // Last User Data (for Welcome Back)
   Future<void> saveLastUser(String name, String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(keyLastUserName, name);
-    await prefs.setString(keyLastUserEmail, email);
+    await _secureStorage.write(key: keyLastUserName, value: name);
+    await _secureStorage.write(key: keyLastUserEmail, value: email);
+    await _secureStorage.write(key: keyHasAccount, value: 'true');
   }
 
   Future<Map<String, String?>> getLastUser() async {
-    final prefs = await SharedPreferences.getInstance();
     return {
-      'name': prefs.getString(keyLastUserName),
-      'email': prefs.getString(keyLastUserEmail),
+      'name': await _secureStorage.read(key: keyLastUserName),
+      'email': await _secureStorage.read(key: keyLastUserEmail),
+      'hasAccount': await _secureStorage.read(key: keyHasAccount),
     };
   }
 
-  // Clear Session
+  // Clear Session (Normal Logout / Expiry)
   Future<void> clearSession() async {
     await deleteToken();
-    // We keep last user data for "Welcome Back" unless it's a "Switch Account"
+    // We KEEP last user data and hasAccount flag for "Welcome Back"
   }
 
   // Full Wipe (Delete Account / Switch Account)

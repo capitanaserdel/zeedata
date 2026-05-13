@@ -141,9 +141,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       print("❌ Refresh Error: $e");
       if (e.toString().contains('Session expired') || e.toString().contains('Unauthenticated') || e.toString().contains('Access denied')) {
-        debugPrint('🧹 Wiping session due to 401/Deleted Account');
-        await _sessionManager.fullWipe();
-        state = AuthState(isFirstTime: false, isAccountDeleted: true, isInitializing: false);
+        debugPrint('🧹 Clearing session due to 401/Deleted Account');
+        await _sessionManager.clearSession(); // Use clearSession instead of fullWipe to keep user info
+        final lastUser = await _sessionManager.getLastUser();
+        final loginBio = await _sessionManager.isLoginBiometricsEnabled();
+        final transBio = await _sessionManager.isTransactionBiometricsEnabled();
+        
+        state = AuthState(
+          isFirstTime: false, 
+          isAccountDeleted: e.toString().contains('Deleted'), 
+          isInitializing: false,
+          user: lastUser['name'] != null ? User(
+            id: 0, 
+            fullname: lastUser['name']!, 
+            email: lastUser['email']!, 
+            phone: '', 
+            status: '', 
+            tier: '', 
+            isVerified: false, 
+            hasPin: true,
+            userSettings: UserSetting(
+              id: 0, 
+              pinFingerprint: transBio, 
+              passwordFingerprint: loginBio
+            )
+          ) : null,
+        );
       }
     }
   }
@@ -157,60 +180,69 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final loginBio = await _sessionManager.isLoginBiometricsEnabled();
       final transBio = await _sessionManager.isTransactionBiometricsEnabled();
       
-      print("🔍 AUTH CHECK: Token: ${token != null}, LoginBio: $loginBio, TransBio: $transBio");
+      final bool hasAccount = lastUser['hasAccount'] == 'true';
+      
+      print("🔍 AUTH CHECK: Token: ${token != null}, HasAccount: $hasAccount, LoginBio: $loginBio");
       
       if (token != null) {
-        final response = await _apiService.get('/profile');
-        if (response.data['responseSuccessful']) {
-          final body = response.data['responseBody'];
-          final user = User.fromJson(body['user']);
-          
-          // Sync with local storage
-          await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
-          await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
-          
-          state = state.copyWith(
-            isAuthenticated: true,
-            isLocked: true,
-            isLoading: false,
-            isInitializing: false,
-            isFirstTime: isFirstTime,
-            user: user,
-            wallet: Wallet.fromJson(body['wallet']),
-            recentTransactions: (body['recentTransactions'] as List)
-                .map((t) => Transaction.fromJson(t))
-                .toList(),
-          );
-        } else {
-          // Token expired or invalid
-          state = state.copyWith(
-            isLoading: false, 
-            isInitializing: false,
-            isAuthenticated: false, 
-            isFirstTime: isFirstTime,
-            user: lastUser['name'] != null ? User(
-              id: 0, 
-              fullname: lastUser['name']!, 
-              email: lastUser['email']!, 
-              phone: '', 
-              status: '', 
-              tier: '', 
-              isVerified: false, 
-              hasPin: true,
-              userSettings: UserSetting(
-                id: 0, 
-                pinFingerprint: transBio, 
-                passwordFingerprint: loginBio
-              )
-            ) : null,
-          );
+        try {
+          final response = await _apiService.get('/profile');
+          if (response.data['responseSuccessful']) {
+            final body = response.data['responseBody'];
+            final user = User.fromJson(body['user']);
+            
+            // Sync with local storage
+            await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
+            await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
+            
+            state = state.copyWith(
+              isAuthenticated: true,
+              isLocked: true,
+              isLoading: false,
+              isInitializing: false,
+              isFirstTime: isFirstTime,
+              user: user,
+              wallet: Wallet.fromJson(body['wallet']),
+              recentTransactions: (body['recentTransactions'] as List)
+                  .map((t) => Transaction.fromJson(t))
+                  .toList(),
+            );
+            return;
+          }
+        } catch (e) {
+          print("❌ Auth Profile Fetch Error: $e");
         }
+        
+        // If token fetch failed but token existed, or token was invalid
+        state = state.copyWith(
+          isLoading: false, 
+          isInitializing: false,
+          isAuthenticated: false, 
+          isFirstTime: isFirstTime,
+          user: lastUser['name'] != null ? User(
+            id: 0, 
+            fullname: lastUser['name']!, 
+            email: lastUser['email']!, 
+            phone: '', 
+            status: '', 
+            tier: '', 
+            isVerified: false, 
+            hasPin: true,
+            userSettings: UserSetting(
+              id: 0, 
+              pinFingerprint: transBio, 
+              passwordFingerprint: loginBio
+            )
+          ) : null,
+        );
       } else {
+        // No token, but check if we have a returning user
         state = state.copyWith(
           isLoading: false, 
           isInitializing: false,
           isFirstTime: isFirstTime,
-          user: lastUser['name'] != null ? User(
+          shouldShowLogin: !hasAccount && !isFirstTime,
+          user: hasAccount && lastUser['name'] != null ? User(
             id: 0, 
             fullname: lastUser['name']!, 
             email: lastUser['email']!, 
@@ -370,7 +402,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         // Save user info for Welcome Back
         await _sessionManager.saveLastUser(user.fullname, user.email);
         await _sessionManager.saveToken(token);
-        // await _sessionManager.savePassword(password); // REMOVED FOR SECURITY
+        await _sessionManager.clearBiometricEnrollment(); // Clear old PINs/Settings for new session
         
         final loginBio = user.userSettings?.passwordFingerprint ?? false;
         final transBio = user.userSettings?.pinFingerprint ?? false;
@@ -430,7 +462,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = User.fromJson(body['user']);
         await _sessionManager.saveLastUser(user.fullname, user.email);
         await _sessionManager.saveToken(token);
-        // await _sessionManager.savePassword(password); // REMOVED FOR SECURITY
+        await _sessionManager.clearBiometricEnrollment(); // Clear any old data
+        
         await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
         await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
         await _sessionManager.setFirstTimeComplete();
