@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,6 +12,7 @@ class ApiService {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': '69420',
     },
   ));
 
@@ -23,19 +25,24 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
-        print("🌐 API REQUEST [${options.method}] → ${options.uri}");
-        if (options.data != null) print("📦 BODY → ${options.data}");
+        debugPrint("🌐 API REQUEST [${options.method}] → ${options.uri}");
+        if (options.data != null) debugPrint("📦 BODY → ${options.data}");
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        print("✅ API RESPONSE [${response.statusCode}] → ${response.data}");
+        _logLongString("✅ API RESPONSE [${response.statusCode}] → ${response.data}");
         return handler.next(response);
       },
       onError: (DioException e, handler) {
-        print("❌ API ERROR [${e.response?.statusCode}] → ${e.response?.data ?? e.message}");
+        _logLongString("❌ API ERROR [${e.response?.statusCode}] → ${e.response?.data ?? e.message}");
         return handler.next(e);
       },
     ));
+  }
+
+  void _logLongString(String text) {
+    final pattern = RegExp('.{1,800}'); // split into 800 char chunks
+    pattern.allMatches(text).forEach((match) => debugPrint(match.group(0)));
   }
 
   Future<Response> post(String path, {dynamic data}) async {

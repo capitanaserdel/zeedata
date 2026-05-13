@@ -20,6 +20,7 @@ class RechargePinScreen extends ConsumerStatefulWidget {
 class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  final _nameOnCardController = TextEditingController();
   
   String? _selectedNetwork;
   int _quantity = 1;
@@ -46,6 +47,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   @override
   void dispose() {
     _amountController.dispose();
+    _nameOnCardController.dispose();
     super.dispose();
   }
 
@@ -85,7 +87,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
         'network': _selectedNetwork,
         'amount': amount,
         'quantity': _quantity,
-        'total_amount': _totalAmount,
+        'name_on_card': _nameOnCardController.text.isEmpty ? null : _nameOnCardController.text,
         'pin': pin,
       });
 
@@ -237,6 +239,14 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
                       controller: _amountController,
                       hint: 'e.g. 100',
                       keyboardType: TextInputType.number,
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    _buildTextField(
+                      label: 'Name on Card (Optional)',
+                      controller: _nameOnCardController,
+                      hint: 'e.g. Boma Enterprise',
+                      validator: (val) => null,
                     ),
                     
                     const SizedBox(height: 24),
@@ -393,6 +403,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
     required TextEditingController controller,
     required String hint,
     TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,7 +423,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
             errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent)),
           ),
-          validator: (val) {
+          validator: validator ?? (val) {
             if (val == null || val.isEmpty) return 'Required';
             final n = double.tryParse(val);
             if (n == null || n <= 0) return 'Invalid amount';
