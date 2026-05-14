@@ -9,6 +9,7 @@ import '../core/validators/app_validators.dart';
 import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import '../providers/balance_provider.dart';
+import '../widgets/contact_picker_button.dart';
 
 class BulkSMSScreen extends ConsumerStatefulWidget {
   const BulkSMSScreen({super.key});
@@ -189,13 +190,42 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
                     ),
                     
                     const SizedBox(height: 24),
-                    _buildTextField(
-                      label: 'Recipients',
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Recipients', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                        ContactPickerButton(
+                          onContactPicked: (result) {
+                            if (result.phoneNumber != null) {
+                              String currentText = _recipientsController.text.trim();
+                              if (currentText.isEmpty) {
+                                _recipientsController.text = result.phoneNumber!;
+                              } else {
+                                // Append with comma
+                                _recipientsController.text = '$currentText, ${result.phoneNumber}';
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: _recipientsController,
-                      hint: 'Enter numbers separated by comma or newline',
                       maxLines: 4,
                       keyboardType: TextInputType.multiline,
                       validator: (v) => v!.isEmpty ? 'At least one recipient is required' : null,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        hintText: 'Enter numbers separated by comma or newline',
+                        filled: true,
+                        fillColor: Colors.white,
+                        counterText: "",
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+                        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent)),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(

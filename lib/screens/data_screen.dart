@@ -10,6 +10,7 @@ import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
 import '../providers/balance_provider.dart';
+import '../widgets/contact_picker_button.dart';
 
 class DataScreen extends ConsumerStatefulWidget {
   const DataScreen({super.key});
@@ -435,6 +436,9 @@ class _DataScreenState extends ConsumerState<DataScreen> {
           borderSide: const BorderSide(color: Colors.redAccent, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        suffixIcon: label == 'Phone Number' 
+            ? ContactPickerButton(controller: controller) 
+            : null,
       ),
     );
   }
