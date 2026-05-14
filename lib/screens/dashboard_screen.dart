@@ -46,13 +46,17 @@ class DashboardScreen extends ConsumerWidget {
     final horizontalPadding = screenWidth * 0.05; // 5% padding
 
     bool isServiceActive(String type) {
-      if (serviceState.services.isEmpty) return false; // Default to inactive while loading
+      // If we are loading for the first time, assume services are active to prevent UI flicker
+      if (serviceState.services.isEmpty) return true; 
+      
       final service = serviceState.services.where((s) => s.type.toUpperCase() == type.toUpperCase()).firstOrNull;
-      return service?.isActive ?? false; // Default to inactive if not found
+      return service?.isActive ?? true; // Default to true if service not found
     }
 
-    // Check for any disabled services to show banner
-    final disabledServices = serviceState.services.where((s) => !s.isActive).map((s) => s.name).toList();
+    // Only show disabled services banner if we have actually loaded data
+    final disabledServices = serviceState.services.isEmpty 
+        ? <String>[] 
+        : serviceState.services.where((s) => !s.isActive).map((s) => s.name).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
