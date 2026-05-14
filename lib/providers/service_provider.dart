@@ -68,9 +68,9 @@ class ServiceNotifier extends StateNotifier<ServiceState> {
   }
 
   bool isServiceActive(String type) {
-    if (state.services.isEmpty) return true; // Default to active if not loaded yet
+    if (state.services.isEmpty) return false; 
     final service = state.services.where((s) => s.type.toUpperCase() == type.toUpperCase()).firstOrNull;
-    return service?.isActive ?? true;
+    return service?.isActive ?? false;
   }
 }
 

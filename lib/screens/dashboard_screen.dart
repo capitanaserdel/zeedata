@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'data_pin_screen.dart';
+import 'referral_screen.dart';
 import 'electricity_screen.dart';
 import 'notifications_screen.dart';
 import '../providers/notification_provider.dart';
@@ -42,6 +44,12 @@ class DashboardScreen extends ConsumerWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final horizontalPadding = screenWidth * 0.05; // 5% padding
+
+    bool isServiceActive(String type) {
+      if (serviceState.services.isEmpty) return false; // Default to inactive while loading
+      final service = serviceState.services.where((s) => s.type.toUpperCase() == type.toUpperCase()).firstOrNull;
+      return service?.isActive ?? false; // Default to inactive if not found
+    }
 
     // Check for any disabled services to show banner
     final disabledServices = serviceState.services.where((s) => !s.isActive).map((s) => s.name).toList();
@@ -344,7 +352,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFEEF2FF),
                       iconColor: const Color(0xFF6366F1),
                       isTablet: isTablet,
-                      isActive: ref.read(serviceProvider.notifier).isServiceActive('AIRTIME'),
+                      isActive: isServiceActive('AIRTIME'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AirtimeScreen())),
                     ),
                     _QuickAction(
@@ -353,7 +361,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF0FDF4),
                       iconColor: const Color(0xFF22C55E),
                       isTablet: isTablet,
-                      isActive: ref.read(serviceProvider.notifier).isServiceActive('DATA'),
+                      isActive: isServiceActive('DATA'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DataScreen())),
                     ),
                     _QuickAction(
@@ -362,7 +370,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFFFF7ED),
                       iconColor: const Color(0xFFF97316),
                       isTablet: isTablet,
-                      isActive: ref.read(serviceProvider.notifier).isServiceActive('A2C') || ref.read(serviceProvider.notifier).isServiceActive('AIRTIME'),
+                      isActive: isServiceActive('A2C'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AirtimeToCashScreen())),
                     ),
                     _QuickAction(
@@ -371,17 +379,17 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF5F3FF),
                       iconColor: const Color(0xFF8B5CF6),
                       isTablet: isTablet,
-                      isActive: ref.read(serviceProvider.notifier).isServiceActive('CABLE'),
+                      isActive: isServiceActive('CABLE'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CableTVScreen())),
                     ),
                     _QuickAction(
-                      icon: Icons.sms_rounded,
-                      label: 'SMS',
-                      color: const Color(0xFFFFF7ED),
-                      iconColor: const Color(0xFFF97316),
+                      icon: Icons.people_alt_rounded,
+                      label: 'Referral',
+                      color: const Color(0xFFF0FDF4),
+                      iconColor: const Color(0xFF22C55E),
                       isTablet: isTablet,
-                      comingSoon: true,
-                      onTap: () {},
+                      isActive: isServiceActive('REFERRAL'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReferralScreen())),
                     ),
                     _QuickAction(
                       icon: Icons.school_rounded,
@@ -389,7 +397,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFF0FDF4),
                       iconColor: const Color(0xFF10B981),
                       isTablet: isTablet,
-                      isActive: ref.read(serviceProvider.notifier).isServiceActive('EDUCATION'),
+                      isActive: isServiceActive('EDUCATION'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EducationScreen())),
                     ),
                     _QuickAction(
@@ -398,8 +406,8 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFEEF2FF),
                       iconColor: const Color(0xFF6366F1),
                       isTablet: isTablet,
-                      comingSoon: true,
-                      onTap: () {},
+                      isActive: isServiceActive('RPIN'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RechargePinScreen())),
                     ),
                     _QuickAction(
                       icon: Icons.electric_bolt_rounded,
@@ -407,7 +415,7 @@ class DashboardScreen extends ConsumerWidget {
                       color: const Color(0xFFFFFBEB),
                       iconColor: const Color(0xFFF59E0B),
                       isTablet: isTablet,
-                      isActive: ref.read(serviceProvider.notifier).isServiceActive('UTILITY'),
+                      isActive: isServiceActive('UTILITY'),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ElectricityScreen())),
                     ),
                   ]),
@@ -425,17 +433,81 @@ class DashboardScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          const phoneNumber = "2348108295595";
-          final url = Uri.parse("https://wa.me/$phoneNumber");
-          if (await canLaunchUrl(url)) {
-            await launchUrl(url, mode: LaunchMode.externalApplication);
-          } else {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not launch WhatsApp')),
+          // Show Welcome Message from ZeeData
+          if (!context.mounted) return;
+          
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return Dialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Image.asset('assets/images/whatsapp_logoi.webp', width: 40, height: 40),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Welcome to ZeeData Support!',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Our support team is available to assist you with any inquiries or issues you may have. Click below to start a chat with us on WhatsApp.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.5),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Maybe Later', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                const phoneNumber = "2348108295595";
+                                final url = Uri.parse("https://wa.me/$phoneNumber");
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF25D366),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Chat Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               );
-            }
-          }
+            },
+          );
         },
         backgroundColor: Colors.transparent,
         elevation: 0,

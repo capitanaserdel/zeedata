@@ -149,7 +149,8 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> {
                                 // Token for Electricity or Education
                                 if (widget.transaction.serviceType == 'ELECTRICITY' || widget.transaction.serviceType == 'UTILITY' || widget.transaction.serviceType == 'EDUCATION')
                                   (() {
-                                    final providerResp = widget.transaction.metadata?['provider_response'];
+                                    final metadata = widget.transaction.metadata;
+                                    final providerResp = metadata?['provider_response'];
                                     
                                     // Extract token/PIN based on service type
                                     String? label = 'TOKEN';
@@ -160,7 +161,7 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> {
                                       label = 'EXAMINATION PIN / SERIAL';
                                       subText = 'Keep this PIN safe for your result checking or registration';
                                       
-                                      token = providerResp?['purchased_code'] ?? providerResp?['Pin'];
+                                      token = metadata?['pin'] ?? metadata?['token'] ?? providerResp?['purchased_code'] ?? providerResp?['Pin'];
                                       
                                       if (token == null) {
                                         final tokens = providerResp?['tokens'];
@@ -177,7 +178,10 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> {
                                         }
                                       }
                                     } else {
-                                      token = providerResp?['mainToken'] ?? 
+                                      token = metadata?['token'] ?? 
+                                              metadata?['purchased_code'] ??
+                                              metadata?['mainToken'] ??
+                                              providerResp?['mainToken'] ?? 
                                               providerResp?['purchased_code'] ?? 
                                               providerResp?['token'] ?? 
                                               providerResp?['cards']?[0]?['pin'];

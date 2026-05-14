@@ -152,6 +152,7 @@ class Transaction {
   final bool isCredit;
   final String description;
   final Map<String, dynamic>? metadata;
+  final String? provider;
   final DateTime createdAt;
 
   Transaction({
@@ -164,6 +165,7 @@ class Transaction {
     required this.isCredit,
     required this.description,
     this.metadata,
+    this.provider,
     required this.createdAt,
   });
 
@@ -189,6 +191,7 @@ class Transaction {
       isCredit: json['is_credit'] ?? false,
       description: json['description'] ?? '',
       metadata: json['metadata'],
+      provider: json['provider'],
       createdAt: dt,
     );
   }

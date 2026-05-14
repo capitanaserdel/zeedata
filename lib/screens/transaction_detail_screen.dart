@@ -201,6 +201,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           const Text('TRANSACTION DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 1.5)),
           const SizedBox(height: 24),
           _buildDetailRow('Reference', widget.transaction.reference),
+          if (widget.transaction.provider != null)
+            _buildDetailRow('Service Provider', widget.transaction.provider!),
           _buildDetailRow('Date & Time', format.format(widget.transaction.createdAt)),
           _buildDetailRow('Description', widget.transaction.description),
           
@@ -213,6 +215,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             if (widget.transaction.serviceType.toUpperCase().contains('ELECTRICITY')) 
               _buildTokenRow(),
 
+            // Specifically look for PINs in Recharge Pin Transactions
+            if (widget.transaction.serviceType.toUpperCase().contains('RECHARGE_PIN')) 
+              _buildPinListRow(),
+
             ...widget.transaction.metadata!.entries.where((e) {
               final k = e.key.toLowerCase();
               return !['source', 'amount_received', 'provider_response', 'status', 'token', 'maintoken', 'purchased_code'].contains(k);
@@ -220,6 +226,73 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildPinListRow() {
+    final metadata = widget.transaction.metadata;
+    if (metadata == null) return const SizedBox.shrink();
+
+    final List? pins = metadata['pins'] as List?;
+    final List? serials = metadata['serials'] as List?;
+
+    if (pins == null || pins.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'RECHARGE PINS',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0369A1), letterSpacing: 1),
+        ),
+        const SizedBox(height: 12),
+        ...List.generate(pins.length, (index) {
+          final pin = pins[index].toString();
+          final serial = (serials != null && serials.length > index) ? serials[index].toString() : null;
+          
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        pin,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1E293B), letterSpacing: 1),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 20, color: AppColors.primary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: pin));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN copied!')));
+                      },
+                    ),
+                  ],
+                ),
+                if (serial != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Serial: $serial',
+                    style: TextStyle(fontSize: 12, color: Colors.blueGrey[600], fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
+        const Divider(height: 40),
+      ],
     );
   }
 

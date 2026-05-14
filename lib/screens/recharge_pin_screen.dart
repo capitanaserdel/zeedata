@@ -23,7 +23,8 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   final _nameOnCardController = TextEditingController();
   
   String? _selectedNetwork;
-  int _quantity = 1;
+  String? _selectedAmount;
+  int _quantity = 10;
   bool _isProcessing = false;
 
   final List<Map<String, dynamic>> _networks = [
@@ -34,14 +35,13 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   ];
 
   double get _totalAmount {
-    final amount = double.tryParse(_amountController.text) ?? 0;
+    final amount = double.tryParse(_selectedAmount ?? '0') ?? 0;
     return amount * _quantity;
   }
 
   @override
   void initState() {
     super.initState();
-    _amountController.addListener(() => setState(() {}));
   }
 
   @override
@@ -81,7 +81,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
     setState(() => _isProcessing = true);
     try {
       final api = ref.read(apiServiceProvider);
-      final amount = double.parse(_amountController.text);
+      final amount = double.parse(_selectedAmount!);
       
       final response = await api.post('/recharge-pin/purchase', data: {
         'network': _selectedNetwork,
@@ -96,7 +96,7 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
           await ref.read(authProvider.notifier).saveStoredPin(pin);
           await ref.read(authProvider.notifier).refreshProfile();
           
-          final pins = (response.data['responseBody']['transaction']['metadata']['pins'] as List?) ?? [];
+          final pins = (response.data['responseBody']['metadata']?['pins'] as List?) ?? [];
           final ussd = _networks.firstWhere((n) => n['id'] == _selectedNetwork)['ussd'];
           
           _showSuccessDialog(pins, ussd);
@@ -234,11 +234,23 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
                     _buildNetworkGrid(),
                     
                     const SizedBox(height: 24),
-                    _buildTextField(
-                      label: 'Amount (₦)',
-                      controller: _amountController,
-                      hint: 'e.g. 100',
-                      keyboardType: TextInputType.number,
+                    const Text('Amount (₦)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedAmount,
+                      items: ['100', '200', '500'].map((amt) => DropdownMenuItem(
+                        value: amt,
+                        child: Text('₦$amt', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                      )).toList(),
+                      onChanged: (val) => setState(() => _selectedAmount = val),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+                      ),
+                      validator: (val) => val == null ? 'Required' : null,
                     ),
                     
                     const SizedBox(height: 24),
@@ -373,11 +385,11 @@ class _RechargePinScreenState extends ConsumerState<RechargePinScreen> {
   Widget _buildQuantitySelector() {
     return Row(
       children: [
-        _buildQtyBtn(Icons.remove, () { if (_quantity > 1) setState(() => _quantity--); }),
+        _buildQtyBtn(Icons.remove, () { if (_quantity > 10) setState(() => _quantity--); }),
         const SizedBox(width: 24),
         Text('$_quantity', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
         const SizedBox(width: 24),
-        _buildQtyBtn(Icons.add, () { if (_quantity < 10) setState(() => _quantity++); }),
+        _buildQtyBtn(Icons.add, () { if (_quantity < 50) setState(() => _quantity++); }),
       ],
     );
   }

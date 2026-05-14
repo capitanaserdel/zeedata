@@ -45,6 +45,12 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
   int _resendTimer = 0;
   bool _canResend = true;
 
+  // Pricing Settings
+  double _percentageCharge = 10.0;
+  double _providerFee = 50.0;
+  double _minAmount = 100.0;
+  double _maxAmount = 50000.0;
+
   // Returned by Step 1
   String? _identifier;
   // Returned by Step 2
@@ -54,7 +60,37 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
   double get _amount     => double.tryParse(_amountCtrl.text) ?? 0;
   int    get _qty        => int.tryParse(_qtyCtrl.text) ?? 1;
   double get _totalAirtime => _amount * _qty;
-  double get _youReceive   => _totalAirtime * 0.85;
+  double get _youReceive {
+    if (_totalAirtime == 0) return 0;
+    final payout = (_totalAirtime * (1 - (_percentageCharge / 100))) - _providerFee;
+    return payout > 0 ? payout : 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchA2CSettings();
+    });
+  }
+
+  Future<void> _fetchA2CSettings() async {
+    final api = ref.read(apiServiceProvider);
+    try {
+      final res = await api.get('/a2c/settings');
+      if (res.data['responseSuccessful'] == true) {
+        final data = res.data['responseBody'];
+        setState(() {
+          _percentageCharge = double.tryParse(data['percentage_charge'].toString()) ?? 10.0;
+          _providerFee = double.tryParse(data['provider_fee'].toString()) ?? 50.0;
+          _minAmount = double.tryParse(data['min_amount'].toString()) ?? 100.0;
+          _maxAmount = double.tryParse(data['max_amount'].toString()) ?? 50000.0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch A2C settings: $e");
+    }
+  }
 
   @override
   void dispose() {
@@ -331,7 +367,8 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
               onChanged: (_) => setState(() {}),
               validator: (v) {
                 final d = double.tryParse(v ?? '');
-                if (d == null || d < 100) return 'Min ₦100';
+                if (d == null || d < _minAmount) return 'Min ₦${_minAmount.toInt()}';
+                if (d > _maxAmount) return 'Max ₦${_maxAmount.toInt()}';
                 return null;
               },
             ),
@@ -415,7 +452,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
       const SizedBox(height: 32),
       _primaryButton('Convert & Credit Wallet', _submit),
       const SizedBox(height: 16),
-      _infoNote('Your wallet will be credited ₦${NumberFormat("#,##0.00").format(_youReceive)} (85% of ₦${NumberFormat("#,##0.00").format(_totalAirtime)}).'),
+      _infoNote('Your wallet will be credited ₦${NumberFormat("#,##0.00").format(_youReceive)} (${_percentageCharge.toInt()}% charge + ₦${_providerFee.toInt()} fee).'),
     ]);
   }
 
@@ -434,7 +471,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
         _summaryRow('Phone', _phoneCtrl.text.isEmpty ? '—' : _phoneCtrl.text),
         _summaryRow('Amount × Qty', '₦${fmt.format(_amount)} × $_qty'),
         _summaryRow('Total Airtime', '₦${fmt.format(_totalAirtime)}'),
-        _summaryRow('Service Charge (15%)', '-₦${fmt.format(_totalAirtime * 0.15)}', valueColor: Colors.red),
+        _summaryRow('Service Charge (${_percentageCharge.toInt()}% + ₦${_providerFee.toInt()})', '-₦${fmt.format((_totalAirtime * (_percentageCharge / 100)) + _providerFee)}', valueColor: Colors.red),
         const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider()),
         _summaryRow('You Receive', '₦${fmt.format(_youReceive)}',
             labelBold: true, valueColor: AppColors.primary, valueSize: 20),

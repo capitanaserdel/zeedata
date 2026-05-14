@@ -322,54 +322,89 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
                               onTap: () => setState(() {
                                 _selectedPlan = plan;
                                 _currentPrice = price;
-                                // We don't reset _isValidated here unless provider changed
                               }),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? AppColors.primary : Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0), width: 2),
-                                  boxShadow: isSelected ? [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))] : [],
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      plan['name'].toString(),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
-                                        height: 1.2,
-                                      ),
+                              child: Stack(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AppColors.primary : Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0), width: 2),
+                                      boxShadow: isSelected ? [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))] : [],
                                     ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: planIsBalanceLow 
-                                            ? Colors.red.withOpacity(isSelected ? 0.3 : 0.1)
-                                            : (isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9)),
-                                        borderRadius: BorderRadius.circular(8),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          plan['name'].toString(),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: planIsBalanceLow 
+                                                ? Colors.red.withOpacity(isSelected ? 0.3 : 0.1)
+                                                : (isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9)),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            "₦${plan['variation_amount']}",
+                                            style: TextStyle(
+                                              color: planIsBalanceLow 
+                                                  ? (isSelected ? Colors.white : Colors.red)
+                                                  : (isSelected ? Colors.white : AppColors.primary),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (plan['is_featured'] == true)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF59E0B),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Featured',
+                                          style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                                        ),
                                       ),
-                                      child: Text(
-                                        "₦${plan['variation_amount']}",
-                                        style: TextStyle(
-                                          color: planIsBalanceLow 
-                                              ? (isSelected ? Colors.white : Colors.red)
-                                              : (isSelected ? Colors.white : AppColors.primary),
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 12,
+                                    )
+                                  else if (plan['is_recommended'] == true)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF3B82F6),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Popular',
+                                          style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5),
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                ],
                               ),
                             );
                           },

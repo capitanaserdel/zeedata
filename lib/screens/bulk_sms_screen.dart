@@ -197,6 +197,11 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
                       keyboardType: TextInputType.multiline,
                       validator: (v) => v!.isEmpty ? 'At least one recipient is required' : null,
                     ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Sandbox Test Numbers: 08011111111, 08022222222',
+                      style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold),
+                    ),
                     
                     const SizedBox(height: 24),
                     _buildTextField(
