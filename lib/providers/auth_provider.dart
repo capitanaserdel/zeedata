@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
@@ -103,7 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     checkAuth();
     // Debug listener
     addListener((state) {
-      debugPrint('🔔 AuthState Changed: isAuthenticated=${state.isAuthenticated}, isAccountDeleted=${state.isAccountDeleted}, isLoading=${state.isLoading}');
+    // State change tracking
     });
   }
 
@@ -119,7 +120,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
-      print("❌ Fetch Transactions Error: $e");
+      // Fetch error
     }
   }
 
@@ -139,10 +140,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
-      print("❌ Refresh Error: $e");
-      if (e.toString().contains('Session expired') || e.toString().contains('Unauthenticated') || e.toString().contains('Access denied')) {
-        debugPrint('🧹 Clearing session due to 401/Deleted Account');
-        await _sessionManager.clearSession(); // Use clearSession instead of fullWipe to keep user info
+      if (e.toString().contains('Session expired') || e.toString().contains('Unauthenticated') || e.toString().contains('Access denied') || e.toString().contains('Deleted')) {
+        await _sessionManager.clearSession(); 
         final lastUser = await _sessionManager.getLastUser();
         final loginBio = await _sessionManager.isLoginBiometricsEnabled();
         final transBio = await _sessionManager.isTransactionBiometricsEnabled();
@@ -182,7 +181,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       
       final bool hasAccount = lastUser['hasAccount'] == 'true';
       
-      print("🔍 AUTH CHECK: Token: ${token != null}, HasAccount: $hasAccount, LoginBio: $loginBio");
+      // Auth status check
       
       if (token != null) {
         try {
@@ -191,7 +190,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
             final body = response.data['responseBody'];
             final user = User.fromJson(body['user']);
             
-            // Sync with local storage
             await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
             await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
             
@@ -210,10 +208,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
             return;
           }
         } catch (e) {
-          print("❌ Auth Profile Fetch Error: $e");
+          // Fetch error
         }
         
-        // If token fetch failed but token existed, or token was invalid
         state = state.copyWith(
           isLoading: false, 
           isInitializing: false,
@@ -236,7 +233,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
           ) : null,
         );
       } else {
-        // No token, but check if we have a returning user
         state = state.copyWith(
           isLoading: false, 
           isInitializing: false,
@@ -283,7 +279,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      print("🌐 LOCK SCREEN: CALLING LOGIN API FOR PWD ");
+      // Verify credentials
       final response = await _apiService.post('/login', data: {
         'email': email,
         'password': password,
@@ -292,11 +288,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (response.data['responseSuccessful']) {
         final body = response.data['responseBody'];
         final token = body['accessToken'];
+        final user = User.fromJson(body['user']);
         await _sessionManager.saveToken(token);
         
-        // NO LONGER STORING RAW PASSWORD FOR BIOMETRICS (Banking Security Standard)
-        // await _sessionManager.savePassword(password);
-
+        if (user.userSettings?.passwordFingerprint == true) {
+          await _sessionManager.savePassword(password);
+        }
+        
         state = state.copyWith(
           isLoading: false,
           isAuthenticated: true,
@@ -325,20 +323,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final isEnabled = await _sessionManager.isLoginBiometricsEnabled();
       if (!canCheck || !isEnabled) return false;
 
-      // 1. Local biometric check (FaceID/Fingerprint)
       bool authenticated = await auth.authenticate(
         localizedReason: 'Please authenticate to unlock ZeeData',
-        options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false, // More compatible with various devices
+          useErrorDialogs: true,
+        ),
       );
 
       if (!authenticated) return false;
 
       state = state.copyWith(isLoading: true, error: null);
 
-      // 2. Token-Based Authentication (Banking Security Standard)
-      // Instead of sending the password again, we verify the existing session token.
-      // This works because the token is invalidated on the backend if the password changes.
-      print("🌐 LOCK SCREEN: VERIFYING SESSION TOKEN FOR BIOMETRIC AUTH");
+      // Session verification
       final response = await _apiService.get('/profile');
 
       if (response.data['responseSuccessful']) {
@@ -356,19 +354,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       } else {
-        // If profile fetch fails (e.g. 401), the token is invalid (expired or revoked due to password change)
+        // Token might be expired, try password login if we have it
+        final storedPassword = await _sessionManager.getPassword();
+        if (storedPassword != null) {
+          return await unlockWithPassword(storedPassword);
+        }
+
         await _sessionManager.clearBiometricEnrollment();
         state = state.copyWith(
           isLoading: false, 
-          error: 'Session expired or password changed. Please login again.',
+          error: 'Session expired. Please login again with your password.',
           isAuthenticated: false,
           isLocked: false
         );
         return false;
       }
     } catch (e) {
-      // Handle network errors or other failures
-      state = state.copyWith(isLoading: false, error: 'Authentication failed. Please use your password.');
+      // If error contains Session expired, try password login
+      if (e.toString().contains('Session expired') || e.toString().contains('Unauthenticated')) {
+        final storedPassword = await _sessionManager.getPassword();
+        if (storedPassword != null) {
+          return await unlockWithPassword(storedPassword);
+        }
+        await _sessionManager.clearBiometricEnrollment();
+      }
+      state = state.copyWith(isLoading: false, error: 'Authentication failed: $e');
       return false;
     }
   }
@@ -376,7 +386,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<String?> getStoredPin() async {
     final pin = await _sessionManager.getPin();
     if (pin != null) {
-      print("🔐 Biometric success → PIN retrieved");
+      // Success
     }
     return pin;
   }
@@ -399,19 +409,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = User.fromJson(body['user']);
         final wallet = Wallet.fromJson(body['wallet']);
         
-        // Save user info for Welcome Back
         await _sessionManager.saveLastUser(user.fullname, user.email);
         await _sessionManager.saveToken(token);
-        await _sessionManager.clearBiometricEnrollment(); // Clear old PINs/Settings for new session
         
         final loginBio = user.userSettings?.passwordFingerprint ?? false;
         final transBio = user.userSettings?.pinFingerprint ?? false;
         
         await _sessionManager.setLoginBiometricsEnabled(loginBio);
         await _sessionManager.setTransactionBiometricsEnabled(transBio);
+        if (loginBio) {
+          await _sessionManager.savePassword(password);
+        }
         await _sessionManager.setFirstTimeComplete();
         
-        print("🔑 LOGIN SUCCESS - BIO STATE: LOGIN=$loginBio, TRANS=$transBio");
+        // Login success
 
         state = state.copyWith(
           isLoading: false,
@@ -462,10 +473,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = User.fromJson(body['user']);
         await _sessionManager.saveLastUser(user.fullname, user.email);
         await _sessionManager.saveToken(token);
-        await _sessionManager.clearBiometricEnrollment(); // Clear any old data
         
         await _sessionManager.setLoginBiometricsEnabled(user.userSettings?.passwordFingerprint ?? false);
         await _sessionManager.setTransactionBiometricsEnabled(user.userSettings?.pinFingerprint ?? false);
+        if (user.userSettings?.passwordFingerprint == true) {
+          await _sessionManager.savePassword(password);
+        }
         await _sessionManager.setFirstTimeComplete();
 
         state = state.copyWith(
@@ -581,7 +594,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isLoading: false,
           user: User.fromJson(body['user']),
         );
-        await _sessionManager.savePin(pin); // Save locally for biometrics
+        await _sessionManager.savePin(pin); 
         return true;
       } else {
         state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
@@ -598,8 +611,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final response = await _settingsService.changePassword(currentPassword, newPassword);
       if (response['responseSuccessful'] == true) {
-        // SECURITY: After password change, invalidate local biometric enrollment
-        // and force a fresh login with the new password.
         await _sessionManager.clearBiometricEnrollment();
         await logout();
         state = state.copyWith(
@@ -626,7 +637,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       });
       if (response.data['responseSuccessful']) {
         state = state.copyWith(isLoading: false);
-        await _sessionManager.savePin(newPin); // Update local store
+        await _sessionManager.savePin(newPin); 
         return true;
       } else {
         state = state.copyWith(isLoading: false, error: _getErrorMessage(response.data));
@@ -638,7 +649,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> toggleBiometric(String type, bool enabled) async {
+  Future<bool> toggleBiometric(String type, bool enabled, {String? secret}) async {
     if (type == 'login') {
       state = state.copyWith(isLoginBioLoading: true, error: null);
     } else {
@@ -657,8 +668,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _sessionManager.setLoginBiometricsEnabled(loginBio);
         await _sessionManager.setTransactionBiometricsEnabled(transBio);
         
-        print("📲 BIOMETRIC SYNC ($type) - API Response: Login=$loginBio, Trans=$transBio");
-        print("📲 BIOMETRIC SYNC ($type) - UI State: Login=${state.loginBioEnabled}, Trans=${state.transBioEnabled}");
+        if (enabled && secret != null) {
+          if (type == 'login') {
+            await _sessionManager.savePassword(secret);
+          } else {
+            await _sessionManager.savePin(secret);
+          }
+        } else if (!enabled) {
+          if (type == 'login') {
+            await _sessionManager.deletePassword();
+          } else {
+            await _sessionManager.deletePin();
+          }
+        }
         
         state = state.copyWith(
           isLoginBioLoading: false,
@@ -689,10 +711,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final response = await _settingsService.deleteAccount();
       if ((response['responseSuccessful'] == true) || (response['message'] == 'Account deleted')) {
-        debugPrint('🧹 Wiping session and setting isAccountDeleted=true');
+        state = state.copyWith(isAuthenticated: false, isAccountDeleted: true, user: null, wallet: null);
         await _sessionManager.fullWipe();
-        state = AuthState(isFirstTime: false, isAccountDeleted: true, isInitializing: false);
-        debugPrint('✅ State set: isAccountDeleted=${state.isAccountDeleted}');
         return true;
       } else {
         state = state.copyWith(isLoading: false, error: _getErrorMessage(response));

@@ -221,7 +221,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
             ...widget.transaction.metadata!.entries.where((e) {
               final k = e.key.toLowerCase();
-              return !['source', 'amount_received', 'provider_response', 'status', 'token', 'maintoken', 'purchased_code'].contains(k);
+              return !['source', 'amount_received', 'provider_response', 'status', 'token', 'maintoken', 'purchased_code', 'fee', 'gateway_fee', 'settled_amount', 'wallet_credited', 'business_absorbed_fee'].contains(k);
             }).map((e) => _buildDetailRow(e.key.replaceAll('_', ' ').toUpperCase(), e.value.toString())),
           ],
         ],

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_loader.dart';
+import '../widgets/contact_picker_button.dart';
 import '../models/user_data.dart';
 import 'transaction_success_screen.dart';
 
@@ -348,6 +349,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
         _sectionLabel('Sender Phone Number'),
         const SizedBox(height: 10),
         _inputField(
+          label: 'Sender Phone Number',
           controller: _phoneCtrl,
           hint: '08012345678',
           icon: Icons.phone_android_rounded,
@@ -360,6 +362,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
             _sectionLabel('Amount per Send (₦)'),
             const SizedBox(height: 10),
             _inputField(
+              label: 'Amount per Send (₦)',
               controller: _amountCtrl,
               hint: '500',
               icon: Icons.attach_money_rounded,
@@ -378,6 +381,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
             _sectionLabel('Quantity'),
             const SizedBox(height: 10),
             _inputField(
+              label: 'Quantity',
               controller: _qtyCtrl,
               hint: '1',
               icon: Icons.repeat_rounded,
@@ -410,6 +414,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
       _sectionLabel('Enter OTP'),
       const SizedBox(height: 10),
       _inputField(
+        label: 'Enter OTP',
         controller: _otpCtrl,
         hint: '123456',
         icon: Icons.lock_outline_rounded,
@@ -443,6 +448,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
       _sectionLabel('SIM Card Transaction PIN'),
       const SizedBox(height: 10),
       _inputField(
+        label: 'SIM Card Transaction PIN',
         controller: _simPinCtrl,
         hint: '****',
         icon: Icons.dialpad_rounded,
@@ -496,6 +502,7 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
   }
 
   Widget _inputField({
+    required String label,
     required TextEditingController controller,
     required String hint,
     required IconData icon,
@@ -517,6 +524,9 @@ class _AirtimeToCashScreenState extends ConsumerState<AirtimeToCashScreen> {
         prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 20),
         filled: true, fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        suffixIcon: label == 'Sender Phone Number' 
+            ? ContactPickerButton(controller: controller) 
+            : null,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),

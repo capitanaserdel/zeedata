@@ -24,24 +24,19 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
-        debugPrint("🌐 API REQUEST [${options.method}] → ${options.uri}");
-        if (options.data != null) debugPrint("📦 BODY → ${options.data}");
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        _logLongString("✅ API RESPONSE [${response.statusCode}] → ${response.data}");
         return handler.next(response);
       },
       onError: (DioException e, handler) {
-        _logLongString("❌ API ERROR [${e.response?.statusCode}] → ${e.response?.data ?? e.message}");
         return handler.next(e);
       },
     ));
   }
 
   void _logLongString(String text) {
-    final pattern = RegExp('.{1,800}'); // split into 800 char chunks
-    pattern.allMatches(text).forEach((match) => debugPrint(match.group(0)));
+    final pattern = RegExp('.{1,800}');
   }
 
   Future<Response> post(String path, {dynamic data}) async {
@@ -86,7 +81,6 @@ class ApiService {
           return data['message'];
         }
         if (data.containsKey('errors')) {
-          // Flatten Laravel validation errors if present
           final errors = data['errors'];
           if (errors is Map) {
             return errors.values.first.first.toString();

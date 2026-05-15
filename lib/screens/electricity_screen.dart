@@ -10,7 +10,6 @@ import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
 import '../providers/balance_provider.dart';
-import '../widgets/contact_picker_button.dart';
 
 class ElectricityScreen extends ConsumerStatefulWidget {
   const ElectricityScreen({super.key});
@@ -230,7 +229,6 @@ class _ElectricityScreenState extends ConsumerState<ElectricityScreen> {
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              suffixIcon: ContactPickerButton(controller: _meterController),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),

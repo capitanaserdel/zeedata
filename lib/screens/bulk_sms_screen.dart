@@ -9,7 +9,6 @@ import '../core/validators/app_validators.dart';
 import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import '../providers/balance_provider.dart';
-import '../widgets/contact_picker_button.dart';
 
 class BulkSMSScreen extends ConsumerStatefulWidget {
   const BulkSMSScreen({super.key});
@@ -190,25 +189,7 @@ class _BulkSMSScreenState extends ConsumerState<BulkSMSScreen> {
                     ),
                     
                     const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Recipients', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                        ContactPickerButton(
-                          onContactPicked: (result) {
-                            if (result.phoneNumber != null) {
-                              String currentText = _recipientsController.text.trim();
-                              if (currentText.isEmpty) {
-                                _recipientsController.text = result.phoneNumber!;
-                              } else {
-                                // Append with comma
-                                _recipientsController.text = '$currentText, ${result.phoneNumber}';
-                              }
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                    const Text('Recipients', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _recipientsController,

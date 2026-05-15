@@ -10,6 +10,7 @@ class SessionManager {
   // Secure Storage Keys (Sensitive/Persistent)
   static const String keyAuthToken = 'auth_token';
   static const String keyUserPin = 'user_transaction_pin';
+  static const String keyUserPassword = 'user_login_password';
   static const String keyLastUserName = 'last_user_name';
   static const String keyLastUserEmail = 'last_user_email';
   static const String keyHasAccount = 'has_active_account';
@@ -50,12 +51,29 @@ class SessionManager {
     return await _secureStorage.read(key: keyUserPin);
   }
 
+  Future<void> deletePin() async {
+    await _secureStorage.delete(key: keyUserPin);
+  }
+
   // Clear Biometric Enrollment (Security Invalidation)
   Future<void> clearBiometricEnrollment() async {
     await setLoginBiometricsEnabled(false);
     await setTransactionBiometricsEnabled(false);
     await _secureStorage.delete(key: keyUserPin);
-    print("🔒 BIOMETRIC ENROLLMENT CLEARED");
+    await _secureStorage.delete(key: keyUserPassword);
+  }
+
+  // User Password (for biometric login recovery)
+  Future<void> savePassword(String password) async {
+    await _secureStorage.write(key: keyUserPassword, value: password);
+  }
+
+  Future<String?> getPassword() async {
+    return await _secureStorage.read(key: keyUserPassword);
+  }
+
+  Future<void> deletePassword() async {
+    await _secureStorage.delete(key: keyUserPassword);
   }
 
   // Login Biometrics

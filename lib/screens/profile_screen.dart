@@ -53,9 +53,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return;
       }
 
+      String? secret;
       if (enabled) {
         bool authenticated = await auth.authenticate(
-          localizedReason: 'Please authenticate to enable biometric login',
+          localizedReason: type == 'login' 
+              ? 'Please authenticate to enable biometric login'
+              : 'Please authenticate to enable biometric payments',
           options: const AuthenticationOptions(
             stickyAuth: true,
             biometricOnly: true,
@@ -70,9 +73,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }
           return;
         }
+
+        // Prompt for Password or PIN to store locally
+        secret = await _promptForSecret(type);
+        if (secret == null) return; // User cancelled
       }
 
-      final success = await ref.read(authProvider.notifier).toggleBiometric(type, enabled);
+      final success = await ref.read(authProvider.notifier).toggleBiometric(type, enabled, secret: secret);
       if (success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -87,6 +94,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       }
     }
+  }
+
+  Future<String?> _promptForSecret(String type) async {
+    final controller = TextEditingController();
+    final isPin = type == 'transaction';
+    
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(isPin ? 'Enter Transaction PIN' : 'Enter Login Password', 
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(isPin 
+                ? 'Please enter your 4-digit PIN to enable biometric payments.'
+                : 'Please enter your password to enable biometric login.',
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              keyboardType: isPin ? TextInputType.number : TextInputType.text,
+              maxLength: isPin ? 4 : null,
+              decoration: InputDecoration(
+                hintText: isPin ? 'PIN' : 'Password',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                Navigator.pop(context, controller.text);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF041f62),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showChangePinDialog() {

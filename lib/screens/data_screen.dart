@@ -49,11 +49,24 @@ class _DataScreenState extends ConsumerState<DataScreen> {
     {'name': '9mobile', 'id': '9mobile-data', 'color': const Color(0xFF006600), 'textColor': Colors.white},
   ];
 
+  List<String> _planGroups = ['All'];
+  String _selectedGroup = 'All';
+
+  String _getPlanCategory(Map<String, dynamic> plan) {
+    final name = plan['name'].toString().toUpperCase();
+    if (name.contains('SME')) return 'SME';
+    if (name.contains('GIFTING') || name.contains('GIFT')) return 'GIFTING';
+    if (name.contains('CG') || name.contains('CORPORATE') || name.contains('CORP')) return 'CG';
+    return 'NORMAL';
+  }
+
   Future<void> _fetchPlans(String serviceId) async {
     setState(() {
       _isLoadingPlans = true;
       _availablePlans = [];
       _selectedPlanData = null;
+      _planGroups = ['All'];
+      _selectedGroup = 'All';
     });
 
     try {
@@ -61,8 +74,32 @@ class _DataScreenState extends ConsumerState<DataScreen> {
       final response = await api.get('/vtu/variations', queryParameters: {'serviceID': serviceId});
       
       if (response.data['responseSuccessful']) {
+        final List<dynamic> plans = response.data['responseBody'];
+        
+        // Extract unique groups based on name parsing
+        final Set<String> groups = {};
+        for (var plan in plans) {
+          final category = _getPlanCategory(plan);
+          if (category != 'NORMAL') {
+            groups.add(category);
+          }
+        }
+
         setState(() {
-          _availablePlans = response.data['responseBody'];
+          _availablePlans = plans;
+          
+          // Define the tab order
+          final List<String> sortedGroups = [];
+          if (groups.contains('SME')) sortedGroups.add('SME');
+          if (groups.contains('CG')) sortedGroups.add('CG');
+          if (groups.contains('GIFTING')) sortedGroups.add('GIFTING');
+          
+          // Add any other groups found
+          for (var g in groups) {
+            if (!sortedGroups.contains(g)) sortedGroups.add(g);
+          }
+          
+          _planGroups = ['All', ...sortedGroups];
         });
       }
     } catch (e) {
@@ -71,6 +108,24 @@ class _DataScreenState extends ConsumerState<DataScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoadingPlans = false);
+    }
+  }
+
+  List<dynamic> get _filteredPlans {
+    if (_selectedGroup == 'All') return _availablePlans;
+    return _availablePlans.where((plan) => 
+      _getPlanCategory(plan) == _selectedGroup
+    ).toList();
+  }
+
+  String _getGroupName(String group) {
+    switch (group) {
+      case 'All': return 'All Plans';
+      case 'SME': return 'SME';
+      case 'CG': return 'Corporate';
+      case 'GIFTING': return 'Gifting';
+      case 'NORMAL': return 'Normal';
+      default: return group;
     }
   }
 
@@ -86,7 +141,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
 
     final selectedPrice = double.tryParse(_selectedPlanData?['variation_amount']?.toString() ?? '0') ?? 0;
     final isBalanceLow = selectedPrice > balance;
-
+    
     return KeyboardDismissOnTap(
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -218,6 +273,84 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                     ),
                     
                     const SizedBox(height: 32),
+                    
+                    // --- PREMIUM SEGMENTED TABS ---
+                    if (_planGroups.length > 1) ...[
+                      const Text(
+                        'Select Category',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 50,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final tabWidth = constraints.maxWidth / _planGroups.length;
+                            return Stack(
+                              children: [
+                                // Animated Background Highlight
+                                AnimatedPositioned(
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeInOutCubic,
+                                  left: _planGroups.indexOf(_selectedGroup) * tabWidth,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: tabWidth,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Tab Labels
+                                Row(
+                                  children: _planGroups.map((group) {
+                                    final isSelected = _selectedGroup == group;
+                                    return Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedGroup = group;
+                                            _selectedPlanData = null;
+                                          });
+                                        },
+                                        behavior: HitTestBehavior.opaque,
+                                        child: Center(
+                                          child: AnimatedDefaultTextStyle(
+                                            duration: const Duration(milliseconds: 200),
+                                            style: TextStyle(
+                                              color: isSelected ? const Color(0xFF011B60) : const Color(0xFF64748B),
+                                              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                                              fontSize: 13,
+                                            ),
+                                            child: Text(_getGroupName(group)),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            );
+                          }
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                    
                     _buildInputField(
                       controller: _phoneController,
                       label: 'Phone Number',
@@ -227,7 +360,7 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                     ),
     
                     const SizedBox(height: 24),
-                    if (_selectedNetwork != null) ...[
+                    if (_availablePlans.isNotEmpty) ...[
                       const Text(
                         'Choose Data Plan',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
@@ -239,8 +372,11 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                           padding: EdgeInsets.all(20.0),
                           child: CircularProgressIndicator(color: Color(0xFF011B60)),
                         ))
-                      else if (_availablePlans.isEmpty)
-                        const Center(child: Text('No plans available for this network.'))
+                      else if (_filteredPlans.isEmpty)
+                        const Center(child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Text('No plans available in this category.'),
+                        ))
                       else
                         GridView.builder(
                           shrinkWrap: true,
@@ -251,9 +387,9 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                             mainAxisSpacing: 12,
                             childAspectRatio: 1.3,
                           ),
-                          itemCount: _availablePlans.length,
+                          itemCount: _filteredPlans.length,
                           itemBuilder: (context, index) {
-                            final plan = _availablePlans[index];
+                            final plan = _filteredPlans[index];
                             final isSelected = _selectedPlanData == plan;
                             final price = double.tryParse(plan['variation_amount']?.toString() ?? '0') ?? 0;
                             final planIsBalanceLow = price > balance;

@@ -24,7 +24,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authProvider).user;
       final isEnabled = user?.userSettings?.passwordFingerprint ?? false;
-      print("🔐 LOCK SCREEN: Login Biometric Enabled: $isEnabled");
       
       if (mounted && !_isAutoPromptDone && isEnabled) {
         _authenticateBiometric();
@@ -86,7 +85,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     if (_isLoading) return;
     if (!mounted) return;
 
-    print("🔑 LOCK SCREEN: PASSWORD VALIDATION STARTED → [$_password]");
     setState(() => _isLoading = true);
 
     try {
@@ -96,7 +94,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
       if (!success) {
         final error = ref.read(authProvider).error ?? 'Invalid password';
-        print("❌ LOCK SCREEN: VALIDATION FAILED → $error");
         setState(() {
           _password = '';
           _isLoading = false;
@@ -109,11 +106,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           ),
         );
       } else {
-        print("🎉 LOCK SCREEN: VALIDATION SUCCESSFUL");
         setState(() => _isLoading = true);
       }
     } catch (e) {
-      print("💥 LOCK SCREEN: CRITICAL ERROR → $e");
       if (!mounted) return;
       setState(() {
         _password = '';
@@ -127,7 +122,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final authState = ref.watch(authProvider);
     final user = authState.user;
     final biometricEnabled = user?.userSettings?.passwordFingerprint ?? false;
-    print("🎨 LOCK SCREEN: Rendering with loginBiometricEnabled = $biometricEnabled");
 
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.height < 700;

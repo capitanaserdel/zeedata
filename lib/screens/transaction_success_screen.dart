@@ -28,20 +28,18 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> {
       // Small delay to ensure rendering is complete
       await Future.delayed(const Duration(milliseconds: 300));
       
-      debugPrint('📸 Capturing screenshot...');
+      // Capturing receipt
       final Uint8List? imageBytes = await _screenshotController.capture(
         pixelRatio: 2.0,
       );
       
       if (imageBytes != null) {
-        debugPrint('✅ Screenshot captured, size: ${imageBytes.length} bytes');
+        // Captured
         final directory = await getTemporaryDirectory();
         final fileName = 'ZD_Receipt_${widget.transaction.reference}.png';
         final imageFile = File('${directory.path}/$fileName');
         await imageFile.writeAsBytes(imageBytes);
-        debugPrint('💾 Image saved to: ${imageFile.path}');
-
-        debugPrint('📤 Opening share sheet...');
+        // Sharing
         await Share.shareXFiles(
           [XFile(imageFile.path)],
           text: 'ZeeData Receipt - ${widget.transaction.serviceType} purchase of ${widget.transaction.amount}',
@@ -51,8 +49,7 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen> {
         throw 'Failed to generate receipt image';
       }
     } catch (e, stack) {
-      debugPrint('❌ SHARE RECEIPT ERROR: $e');
-      debugPrint('❌ STACKTRACE: $stack');
+      // Share error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
