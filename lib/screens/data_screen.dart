@@ -423,116 +423,87 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                           child: Text('No plans available in this category.'),
                         ))
                       else
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.3,
+                        DropdownButtonFormField<Map<String, dynamic>>(
+                          value: _selectedPlanData,
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF94A3B8), size: 24),
+                          decoration: InputDecoration(
+                            labelText: 'Select Data Plan',
+                            labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                            prefixIcon: const Icon(Icons.network_wifi_rounded, color: Color(0xFF94A3B8), size: 22),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF011B60), width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                           ),
-                          itemCount: _filteredPlans.length,
-                          itemBuilder: (context, index) {
-                            final plan = _filteredPlans[index];
-                            final isSelected = _selectedPlanData == plan;
-                            final price = double.tryParse(plan['variation_amount']?.toString() ?? '0') ?? 0;
-                            final planIsBalanceLow = price > balance;
-                            
-                            return GestureDetector(
-                              onTap: () {
-                                KeyboardUtils.hide(context);
-                                setState(() => _selectedPlanData = plan);
-                              },
-                              child: Stack(
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          items: _filteredPlans.map<DropdownMenuItem<Map<String, dynamic>>>((plan) {
+                            final price = plan['variation_amount']?.toString() ?? '0';
+                            return DropdownMenuItem<Map<String, dynamic>>(
+                              value: plan as Map<String, dynamic>,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? const Color(0xFF011B60) : Colors.white,
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
-                                        width: 2,
-                                      ),
-                                      boxShadow: isSelected ? [
-                                        BoxShadow(color: const Color(0xFF011B60).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
-                                      ] : [],
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                  Expanded(
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          plan['name'].toString(),
-                                          textAlign: TextAlign.center,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 14,
-                                            height: 1.2,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: planIsBalanceLow 
-                                                ? Colors.red.withOpacity(isSelected ? 0.3 : 0.1)
-                                                : (isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFF1F5F9)),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
+                                        if (plan['is_featured'] == true) ...[
+                                          const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                                          const SizedBox(width: 4),
+                                        ] else if (plan['is_recommended'] == true) ...[
+                                          const Icon(Icons.thumb_up_rounded, color: Colors.blue, size: 14),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Expanded(
                                           child: Text(
-                                            "₦${plan['variation_amount']}",
-                                            style: TextStyle(
-                                              color: planIsBalanceLow 
-                                                  ? (isSelected ? Colors.white : Colors.red)
-                                                  : (isSelected ? Colors.white : const Color(0xFF011B60)),
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 13,
+                                            plan['name'].toString(),
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Color(0xFF1E293B),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  if (plan['is_featured'] == true)
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF59E0B),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: const Text(
-                                          'Featured',
-                                          style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                                        ),
-                                      ),
-                                    )
-                                  else if (plan['is_recommended'] == true)
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF3B82F6),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: const Text(
-                                          'Popular',
-                                          style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                                        ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      "₦$price",
+                                      style: const TextStyle(
+                                        color: Color(0xFF011B60),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
                                       ),
                                     ),
+                                  ),
                                 ],
                               ),
                             );
+                          }).toList(),
+                          onChanged: (Map<String, dynamic>? newValue) {
+                            setState(() {
+                              _selectedPlanData = newValue;
+                            });
                           },
                         ),
                     ],
