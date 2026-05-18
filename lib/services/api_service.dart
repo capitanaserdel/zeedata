@@ -24,19 +24,51 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
+        
+        if (kDebugMode) {
+          debugPrint('\n==================== 🚀 API REQUEST ====================');
+          debugPrint('🌐 URL: [${options.method}] ${options.uri}');
+          debugPrint('📁 Headers: ${options.headers}');
+          if (options.data != null) {
+            debugPrint('✉️ Request Body: ${options.data}');
+          }
+          debugPrint('========================================================');
+        }
         return handler.next(options);
       },
       onResponse: (response, handler) {
+        if (kDebugMode) {
+          debugPrint('\n==================== ✅ API RESPONSE ====================');
+          debugPrint('🌐 URL: [${response.requestOptions.method}] ${response.requestOptions.uri}');
+          debugPrint('🚨 Status Code: ${response.statusCode}');
+          debugPrint('📦 Response Payload:');
+          _logLongString(response.data.toString());
+          debugPrint('========================================================');
+        }
         return handler.next(response);
       },
       onError: (DioException e, handler) {
+        if (kDebugMode) {
+          debugPrint('\n==================== ❌ API ERROR =====================');
+          debugPrint('🌐 URL: [${e.requestOptions.method}] ${e.requestOptions.uri}');
+          debugPrint('🚨 Status Code: ${e.response?.statusCode}');
+          debugPrint('🚨 Error Type: ${e.type}');
+          debugPrint('💬 Error Message: ${e.message}');
+          if (e.response?.data != null) {
+            debugPrint('📦 Error Response Body: ${e.response?.data}');
+          }
+          debugPrint('========================================================');
+        }
         return handler.next(e);
       },
     ));
   }
 
   void _logLongString(String text) {
-    final pattern = RegExp('.{1,800}');
+    if (kDebugMode) {
+      final pattern = RegExp('.{1,800}');
+      pattern.allMatches(text).forEach((match) => debugPrint(match.group(0)));
+    }
   }
 
   Future<Response> post(String path, {dynamic data}) async {
