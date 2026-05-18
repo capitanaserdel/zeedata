@@ -109,7 +109,7 @@ class _CableTVScreenState extends ConsumerState<CableTVScreen> {
 
         setState(() {
           _isValidated = true;
-          _accountName = data['name'] ?? data['customer_name'] ?? 'Account Verified';
+          _accountName = data['Customer_Name'] ?? data['customer_name'] ?? data['name'] ?? 'Verified Customer';
         });
       } else {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.data['responseMessage'] ?? 'Validation failed'), backgroundColor: Colors.red));
