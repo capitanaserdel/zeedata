@@ -49,8 +49,11 @@ class _DataScreenState extends ConsumerState<DataScreen> {
     {'name': '9mobile', 'id': '9mobile-data', 'color': const Color(0xFF006600), 'textColor': Colors.white},
   ];
 
-  List<String> _planGroups = ['All'];
+  final List<String> _planGroups = ['All', 'SME', 'CG', 'GIFTING'];
   String _selectedGroup = 'All';
+
+  final List<String> _validityFilters = ['All', 'Daily', 'Weekly', 'Monthly'];
+  String _selectedValidity = 'All';
 
   String _getPlanCategory(Map<String, dynamic> plan) {
     final name = plan['name'].toString().toUpperCase();
@@ -60,13 +63,24 @@ class _DataScreenState extends ConsumerState<DataScreen> {
     return 'NORMAL';
   }
 
+  String _getPlanValidity(Map<String, dynamic> plan) {
+    final name = plan['name'].toString().toUpperCase();
+    if (name.contains('DAY') || name.contains('HRS') || name.contains('HOUR') || name.contains('DAILY') || name.contains('1D')) {
+      return 'DAILY';
+    }
+    if (name.contains('WEEK') || name.contains('7 DAYS') || name.contains('14 DAYS') || name.contains('WEEKLY') || name.contains('7D')) {
+      return 'WEEKLY';
+    }
+    return 'MONTHLY';
+  }
+
   Future<void> _fetchPlans(String serviceId) async {
     setState(() {
       _isLoadingPlans = true;
       _availablePlans = [];
       _selectedPlanData = null;
-      _planGroups = ['All'];
       _selectedGroup = 'All';
+      _selectedValidity = 'All';
     });
 
     try {
@@ -75,31 +89,8 @@ class _DataScreenState extends ConsumerState<DataScreen> {
       
       if (response.data['responseSuccessful']) {
         final List<dynamic> plans = response.data['responseBody'];
-        
-        // Extract unique groups based on name parsing
-        final Set<String> groups = {};
-        for (var plan in plans) {
-          final category = _getPlanCategory(plan);
-          if (category != 'NORMAL') {
-            groups.add(category);
-          }
-        }
-
         setState(() {
           _availablePlans = plans;
-          
-          // Define the tab order
-          final List<String> sortedGroups = [];
-          if (groups.contains('SME')) sortedGroups.add('SME');
-          if (groups.contains('CG')) sortedGroups.add('CG');
-          if (groups.contains('GIFTING')) sortedGroups.add('GIFTING');
-          
-          // Add any other groups found
-          for (var g in groups) {
-            if (!sortedGroups.contains(g)) sortedGroups.add(g);
-          }
-          
-          _planGroups = ['All', ...sortedGroups];
         });
       }
     } catch (e) {
@@ -112,10 +103,17 @@ class _DataScreenState extends ConsumerState<DataScreen> {
   }
 
   List<dynamic> get _filteredPlans {
-    if (_selectedGroup == 'All') return _availablePlans;
-    return _availablePlans.where((plan) => 
-      _getPlanCategory(plan) == _selectedGroup
-    ).toList();
+    List<dynamic> plans = _availablePlans;
+
+    if (_selectedGroup != 'All') {
+      plans = plans.where((plan) => _getPlanCategory(plan) == _selectedGroup).toList();
+    }
+
+    if (_selectedValidity != 'All') {
+      plans = plans.where((plan) => _getPlanValidity(plan) == _selectedValidity.toUpperCase()).toList();
+    }
+
+    return plans;
   }
 
   String _getGroupName(String group) {
@@ -366,6 +364,53 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
                       ),
                       const SizedBox(height: 16),
+
+                      // --- SUB-FILTER (VALIDITY / DURATION) ---
+                      SizedBox(
+                        height: 38,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _validityFilters.length,
+                          itemBuilder: (context, index) {
+                            final filter = _validityFilters[index];
+                            final isSelected = _selectedValidity == filter;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedValidity = filter;
+                                    _selectedPlanData = null;
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFF011B60).withOpacity(0.08) : Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isSelected ? const Color(0xFF011B60) : const Color(0xFFE2E8F0),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      filter,
+                                      style: TextStyle(
+                                        color: isSelected ? const Color(0xFF011B60) : const Color(0xFF64748B),
+                                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                       
                       if (_isLoadingPlans)
                         const Center(child: Padding(
