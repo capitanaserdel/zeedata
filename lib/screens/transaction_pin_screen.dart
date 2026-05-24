@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
-import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/custom_loader.dart';
 
 class TransactionPinScreen extends ConsumerStatefulWidget {
   const TransactionPinScreen({super.key});
@@ -65,7 +63,7 @@ class _TransactionPinScreenState extends ConsumerState<TransactionPinScreen> {
         }
       }
     } catch (e) {
-      print("❌ Biometric Error: $e");
+      // Silently handle or log biometrics failure in debug/monitoring if required
     }
   }
 

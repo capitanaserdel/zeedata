@@ -5,7 +5,6 @@ import '../widgets/custom_loader.dart';
 import 'transaction_pin_screen.dart';
 import 'transaction_success_screen.dart';
 import '../models/user_data.dart';
-import '../core/validators/app_validators.dart';
 import '../core/utils/keyboard_utils.dart';
 import '../widgets/common/insufficient_balance_indicator.dart';
 import 'package:intl/intl.dart';
@@ -423,89 +422,128 @@ class _DataScreenState extends ConsumerState<DataScreen> {
                           child: Text('No plans available in this category.'),
                         ))
                       else
-                        DropdownButtonFormField<Map<String, dynamic>>(
-                          value: _selectedPlanData,
-                          isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF94A3B8), size: 24),
-                          decoration: InputDecoration(
-                            labelText: 'Select Data Plan',
-                            labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
-                            prefixIcon: const Icon(Icons.network_wifi_rounded, color: Color(0xFF94A3B8), size: 22),
-                            filled: true,
-                            fillColor: const Color(0xFFF8FAFC),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Color(0xFF011B60), width: 1.5),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                          ),
-                          dropdownColor: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          items: _filteredPlans.map<DropdownMenuItem<Map<String, dynamic>>>((plan) {
-                            final price = plan['variation_amount']?.toString() ?? '0';
-                            return DropdownMenuItem<Map<String, dynamic>>(
-                              value: plan as Map<String, dynamic>,
-                              child: Row(
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isTablet ? 3 : 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.15,
+                        ),
+                        itemCount: _filteredPlans.length,
+                        itemBuilder: (context, index) {
+                          final plan = _filteredPlans[index] as Map<String, dynamic>;
+                          final isSelected = _selectedPlanData == plan;
+                          final price = plan['variation_amount']?.toString() ?? '0';
+                          final name = plan['name'].toString();
+                          final isFeatured = plan['is_featured'] == true;
+                          final isRecommended = plan['is_recommended'] == true;
+
+                          return GestureDetector(
+                            onTap: () {
+                              KeyboardUtils.hide(context);
+                              setState(() {
+                                _selectedPlanData = plan;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isSelected 
+                                    ? const Color(0xFF011B60).withOpacity(0.06) 
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected 
+                                      ? const Color(0xFF011B60) 
+                                      : const Color(0xFFE2E8F0),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                boxShadow: isSelected ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF011B60).withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ] : [],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        if (plan['is_featured'] == true) ...[
-                                          const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                                          const SizedBox(width: 4),
-                                        ] else if (plan['is_recommended'] == true) ...[
-                                          const Icon(Icons.thumb_up_rounded, color: Colors.blue, size: 14),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Expanded(
-                                          child: Text(
-                                            plan['name'].toString(),
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Color(0xFF1E293B),
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 14,
-                                            ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (isFeatured || isRecommended) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: isFeatured 
+                                                ? const Color(0xFFF59E0B).withOpacity(0.15) 
+                                                : const Color(0xFF3B82F6).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                isFeatured ? Icons.star_rounded : Icons.thumb_up_rounded,
+                                                color: isFeatured ? const Color(0xFFD97706) : const Color(0xFF2563EB),
+                                                size: 12,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                isFeatured ? "FEATURED" : "POPULAR",
+                                                style: TextStyle(
+                                                  color: isFeatured ? const Color(0xFFB45309) : const Color(0xFF1D4ED8),
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 8,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                        const SizedBox(height: 8),
                                       ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      "₦$price",
-                                      style: const TextStyle(
-                                        color: Color(0xFF011B60),
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 13,
+                                      Text(
+                                        name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: const Color(0xFF1E293B),
+                                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
                                       ),
-                                    ),
+                                    ],
+                                  ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "₦$price",
+                                        style: const TextStyle(
+                                          color: Color(0xFF011B60),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Icon(
+                                          Icons.check_circle_rounded,
+                                          color: Color(0xFF011B60),
+                                          size: 20,
+                                        ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            );
-                          }).toList(),
-                          onChanged: (Map<String, dynamic>? newValue) {
-                            setState(() {
-                              _selectedPlanData = newValue;
-                            });
-                          },
-                        ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                     
                     InsufficientBalanceIndicator(
